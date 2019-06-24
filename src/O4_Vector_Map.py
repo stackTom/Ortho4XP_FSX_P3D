@@ -41,7 +41,7 @@ def build_poly_file(tile):
     if UI.red_flag: UI.exit_message_and_bottom_line(); return 0
 
     if O4_ESP_Globals.build_for_ESP and os.path.isfile(O4_Config_Utils.ESP_scenproc_loc):
-        include_sceneproc(tile)
+        include_scenproc(tile)
 
     # Airports
     (apt_array,apt_area)=include_airports(vector_map,tile) 
@@ -120,12 +120,30 @@ def build_poly_file(tile):
 ##############################################################################
 
 ##############################################################################
-def include_sceneproc(tile):
+def include_scenproc(tile):
     print("Downloading OSM data for ScenProc, this might take some time, please wait...")
-    response = OSM.get_overpass_data("", (tile.lon, tile.lat, tile.lon + 1, tile.lat + 1), "MAP")
-    file_name = os.path.join(FNAMES.osm_dir(tile.lat, tile.lon), "scenproc_osm_data.osm")
-    with open(file_name, "wb") as f:
-        f.write(response)
+    scenproc_osm_dir = os.path.join(FNAMES.osm_dir(tile.lat, tile.lon), "scenproc_osm_data")
+    if not os.path.exists(scenproc_osm_dir):
+        os.mkdir(scenproc_osm_dir)
+    NUM_SCENPROC_CHUNKS = 16
+    NUM_STEPS = int(sqrt(NUM_SCENPROC_CHUNKS))
+    for i in range(NUM_STEPS):
+        min_lon = tile.lon
+        if i > 0:
+            min_lon = tile.lon + (i / NUM_STEPS)
+
+        max_lon = tile.lon + ((i + 1) / NUM_STEPS)
+        for j in range(NUM_STEPS):
+            min_lat = tile.lat
+            if j > 0:
+                min_lat = tile.lat + (j / NUM_STEPS)
+
+            max_lat = tile.lat + ((j + 1) / NUM_STEPS)
+
+            response = OSM.get_overpass_data("", (min_lon, min_lat, max_lon, max_lat), "MAP")
+            file_name = os.path.join(scenproc_osm_dir, "scenproc_osm_data" + str(i) + "_" + str (j) + ".osm")
+            with open(file_name, "wb") as f:
+                f.write(response)
 ##############################################################################
 
 ##############################################################################
