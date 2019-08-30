@@ -767,7 +767,7 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
     resolution=2**earthzl*256
     
     list_del_ckbtn = ['OSM data','Mask data','Jpeg imagery','Tile (whole)','Tile (textures)']
-    list_do_ckbtn  = ['Assemble vector data','Triangulate 3D mesh','Draw water masks','Build imagery/DSF','Extract overlays','Read per tile cfg', 'Build For ESP (FSX/P3D)']
+    list_do_ckbtn  = ['Assemble vector data','Triangulate 3D mesh','Draw water masks','Build imagery/DSF','Extract overlays','Read per tile cfg', 'Build For ESP (FSX/P3D)', 'Build For ESP (FS9)']
     
     canvas_min_x=900
     canvas_min_y=700
@@ -1100,11 +1100,18 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         return
 
     def batch_build(self):
-        O4_ESP_Globals.build_for_ESP = True if self.v_["Build For ESP (FSX/P3D)"].get() else False
+        O4_ESP_Globals.build_for_FSX_P3D = True if self.v_["Build For ESP (FSX/P3D)"].get() else False
+        O4_ESP_Globals.build_for_FS9 = True if self.v_["Build For ESP (FS9)"].get() else False
         O4_ESP_Globals.do_build_masks = True if self.v_["Draw water masks"].get() else False
 
-        if O4_ESP_Globals.build_for_ESP and O4_ESP_Globals.do_build_masks:
-            main_window_tile_zoom = int(UI.gui.zl_combo.get())
+        main_window_tile_zoom = int(UI.gui.zl_combo.get())
+        # FS9 has 4.7 meters per pixel limit
+        if O4_ESP_Globals.build_for_FS9 and main_window_tile_zoom > 15:
+            print("FS9 has a limit of 4.7 meters per pixel, so a max of ZL 15 has been set")
+            UI.gui.zl_combo.set("15")
+            main_window_tile_zoom = 15
+
+        if (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9) and O4_ESP_Globals.do_build_masks:
             if main_window_tile_zoom != CFG.mask_zl:
                 print("FSX/P3D building requires both the tile and mask zooms to equal. Setting the mask zoom to the tile zoom of " + str(main_window_tile_zoom))
                 CFG.mask_zl = main_window_tile_zoom

@@ -40,7 +40,7 @@ def build_poly_file(tile):
     
     if UI.red_flag: UI.exit_message_and_bottom_line(); return 0
 
-    if O4_ESP_Globals.build_for_ESP and os.path.isfile(O4_Config_Utils.ESP_scenproc_loc):
+    if (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9) and os.path.isfile(O4_Config_Utils.ESP_scenproc_loc):
         include_scenproc(tile)
 
     # Airports

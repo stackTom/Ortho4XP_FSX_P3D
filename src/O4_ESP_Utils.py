@@ -211,7 +211,11 @@ def spawn_resample_process(filename):
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startupinfo.wShowWindow = 7 # subprocess.SW_SHOWMINNOACTIVE is 7
-    process = subprocess.Popen([O4_Config_Utils.ESP_resample_loc, filename], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+    resample_exe_loc = O4_Config_Utils.FSX_P3D_resample_loc
+    if O4_ESP_Globals.build_for_FS9:
+        resample_exe_loc = O4_Config_Utils.FS9_resample_loc
+    print(resample_exe_loc)
+    process = subprocess.Popen([resample_exe_loc, filename], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
     # wait until done
     process.communicate()
 
@@ -282,11 +286,11 @@ def build_for_ESP(build_dir, tile):
         print("ESP_build_dir is None inside of resample... something went wrong, so can't run resample")
         return
 
-    if O4_Config_Utils.ESP_resample_loc is '':
+    if O4_Config_Utils.FSX_P3D_resample_loc is '':
         print("No resample.exe is specified in Ortho4XP.cfg, quitting")
         return
-    if not os.path.isfile(O4_Config_Utils.ESP_resample_loc):
-        print("resample.exe doesn't exist at " + O4_Config_Utils.ESP_resample_loc + ", quitting")
+    if not os.path.isfile(O4_Config_Utils.FSX_P3D_resample_loc):
+        print("resample.exe doesn't exist at " + O4_Config_Utils.FSX_P3D_resample_loc + ", quitting")
         return
 
     # run ScenProc if user has specified path to the scenProc.exe and OSM file was successfully downloaded previously
@@ -344,7 +348,7 @@ def build_for_ESP(build_dir, tile):
                 if not should_mask:
                     img_mask_abs_path = None
 
-                # subprocess.call([O4_Config_Utils.ESP_resample_loc, inf_abs_path])
+                # subprocess.call([O4_Config_Utils.FSX_P3D_resample_loc, inf_abs_path])
                 q.put_nowait([file_name, inf_abs_path, img_mask_abs_path])
     
     for _ in threads: q.put_nowait(None) # signal no more files

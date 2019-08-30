@@ -12,7 +12,7 @@ The same installer can also be found here: https://www.imagemagick.org/download/
 
 NOTE: Need to provide the location of your resample.exe from the P3D or FSX SDK in Ortho4XP.cfg, like this:
 
-`ESP_resample_loc=C:\\LOCATION\\TO\\resample.exe`
+`FSX_P3D_resample_loc=C:\\LOCATION\\TO\\resample.exe`
 
 Notice the double backslashes `\\` instead of single `\`. This key is only supported by this fork and will be deleted from the Ortho4XP.cfg file each time you change and save the settings via the settings screen in the GUI, so be sure to add it again using a text editor if it gets removed.
 

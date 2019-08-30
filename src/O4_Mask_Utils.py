@@ -81,7 +81,7 @@ def build_masks(tile,for_imagery=False):
     ####################
     [til_x_min,til_y_min]=GEO.wgs84_to_orthogrid(tile.lat+1,tile.lon,tile.mask_zl)
     [til_x_max,til_y_max]=GEO.wgs84_to_orthogrid(tile.lat,tile.lon+1,tile.mask_zl)
-    if not O4_ESP_Globals.build_for_ESP:
+    if not (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9):
         UI.vprint(1,"-> Deleting existing masks")
         for til_x in range(til_x_min,til_x_max+1,16):
             for til_y in range(til_y_min,til_y_max+1,16):
@@ -299,7 +299,7 @@ def build_masks(tile,for_imagery=False):
                 custom_mask_array=(numpy.array(masks_im,dtype=numpy.uint8)*(sea_level/255)).astype(numpy.uint8)
         
         mask_name = FNAMES.legacy_mask(til_x, til_y)
-        if O4_ESP_Globals.build_for_ESP:
+        if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
             name, extension = os.path.splitext(mask_name)
             mask_name = name + ".tif"
         if (img_array.max()==0) and (custom_mask_array.max()==0): # no need to test if the mask is all white since it would otherwise not be present in dico_mask
@@ -309,7 +309,7 @@ def build_masks(tile,for_imagery=False):
             UI.vprint(1,"   Creating", mask_name)
 
             mask_img_name = os.path.join(FNAMES.mask_dir(tile.lat, tile.lon), mask_name)
-            if O4_ESP_Globals.build_for_ESP and os.path.isfile(mask_img_name):
+            if (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9) and os.path.isfile(mask_img_name):
                 UI.vprint(1,"   The mask file "+ mask_img_name +" is already present, so don't have to build it")
                 return 1
 
@@ -400,7 +400,7 @@ def build_masks(tile,for_imagery=False):
         if not (img_array.max()==0 or img_array.min()==255):
             masks_im=Image.fromarray(img_array)  #.filter(ImageFilter.GaussianBlur(3))
             mask_img_name = os.path.join(dest_dir, FNAMES.legacy_mask(til_x, til_y))
-            if O4_ESP_Globals.build_for_ESP:
+            if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
                 name, extension = os.path.splitext(mask_img_name)
                 mask_img_name = name + ".tif"
             masks_im.save(mask_img_name)

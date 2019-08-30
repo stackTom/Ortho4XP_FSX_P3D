@@ -990,7 +990,7 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
                 true_file_name=FNAMES.jpeg_file_name_from_attributes(true_til_x_left, true_til_y_top, true_zl,rlayer['layer_code'])
                 true_file_dir=FNAMES.jpeg_file_dir_from_attributes(tile.lat, tile.lon,true_zl,providers_dict[rlayer['layer_code']])
                 name, extension = os.path.splitext(true_file_name)
-                if O4_ESP_Globals.build_for_ESP:
+                if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
                     extension = ".bmp"
                     true_file_name = name + extension
                 final_file_dir = true_file_dir
@@ -1023,7 +1023,7 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         file_name=FNAMES.jpeg_file_name_from_attributes(til_x_left, til_y_top, zoomlevel,provider_code)
         file_dir=FNAMES.jpeg_file_dir_from_attributes(tile.lat, tile.lon,zoomlevel,providers_dict[provider_code])
         name, extension = os.path.splitext(file_name)
-        if O4_ESP_Globals.build_for_ESP:
+        if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
             extension = ".bmp"
             file_name = name + extension
         final_file_dir = file_dir
@@ -1039,7 +1039,7 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         UI.vprint(1,"   Unknown provider",provider_code,"or it has no data around",tlat,tlon,".")
         return 0
 
-    if O4_ESP_Globals.build_for_ESP:
+    if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
         nbr = 16
         # TODO: stop using globals, only used them cause I wanted to get v130 to work in one night with masking, etc
         O4_ESP_Globals.ESP_build_dir = final_file_dir
