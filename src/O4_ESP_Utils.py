@@ -129,7 +129,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
     return (string if string != "" else None, source_num - 1)
 
 # TODO: all this night/season mask code is kind of terrible... need to refactor
-def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel):
+def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
@@ -159,7 +159,10 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             contents = "[Source]\nType = MultiSource\nNumberOfSources = " + str(total_num_sources) + "\n\n"
 
         current_source_num = 1
-        seasons_string, num_seasons = get_seasons_inf_string(seasons_to_create, current_source_num, "BMP", "Imagery", os.path.abspath(file_dir), file_name, img_mask_folder_abs_path, img_mask_abs_path,
+        bmp_type = "BMP"
+        if use_FS9_type:
+            bmp_type = "Custom"
+        seasons_string, num_seasons = get_seasons_inf_string(seasons_to_create, current_source_num, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, img_mask_folder_abs_path, img_mask_abs_path,
         str(img_top_left_tile[1]), str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg), total_num_sources, should_mask)
         # if seasons_string is not None, there are seasons to build in Ortho4XP.cfg
         if seasons_string:
@@ -168,7 +171,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
 
         if O4_Config_Utils.create_ESP_night:
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", "BMP", "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night.bmp", str(img_top_left_tile[1]),
+            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night.bmp", str(img_top_left_tile[1]),
                     str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
@@ -177,7 +180,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         # TODO: when no seasons being built, just use your new logic which sets the season to summer and sets variation to all months not used...
         if seasons_string is None:
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, None, None, "BMP", "Imagery", os.path.abspath(file_dir), file_name, str(img_top_left_tile[1]),
+            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, str(img_top_left_tile[1]),
                         str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
@@ -185,8 +188,9 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             current_source_num += 1
 
         if should_mask:
+            mask_type = "Custom" if use_FS9_type else "Tiff"
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, None, None, "TIFF", "None", img_mask_folder_abs_path, img_mask_name, str(img_top_left_tile[1]),
+            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "None", img_mask_folder_abs_path, img_mask_name, str(img_top_left_tile[1]),
                     str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
 
         contents += "[Destination]\n"
@@ -212,7 +216,7 @@ def spawn_resample_process(filename):
     resample_exe_loc = O4_Config_Utils.FSX_P3D_resample_loc
     if O4_ESP_Globals.build_for_FS9:
         resample_exe_loc = O4_Config_Utils.FS9_resample_loc
-    print(resample_exe_loc)
+
     process = subprocess.Popen([resample_exe_loc, filename], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
     # wait until done
     process.communicate()

@@ -1043,7 +1043,7 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         nbr = 16
         # TODO: stop using globals, only used them cause I wanted to get v130 to work in one night with masking, etc
         O4_ESP_Globals.ESP_build_dir = final_file_dir
-        O4_ESP_Utils.make_ESP_inf_file(final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel)
+        O4_ESP_Utils.make_ESP_inf_file(final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel, O4_ESP_Globals.build_for_FS9)
 
     return 1
 ###############################################################################################################################
