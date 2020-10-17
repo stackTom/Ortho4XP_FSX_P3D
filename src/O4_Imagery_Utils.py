@@ -1023,8 +1023,11 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         file_name=FNAMES.jpeg_file_name_from_attributes(til_x_left, til_y_top, zoomlevel,provider_code)
         file_dir=FNAMES.jpeg_file_dir_from_attributes(tile.lat, tile.lon,zoomlevel,providers_dict[provider_code])
         name, extension = os.path.splitext(file_name)
-        if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
+        if O4_ESP_Globals.build_for_FSX_P3D:
             extension = ".bmp"
+            file_name = name + extension
+        elif O4_ESP_Globals.build_for_FS9:
+            extension = ".tga"
             file_name = name + extension
         final_file_dir = file_dir
         final_file_name = file_name

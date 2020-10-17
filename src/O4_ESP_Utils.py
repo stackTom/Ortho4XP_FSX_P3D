@@ -10,7 +10,7 @@ import glob
 from queue import Queue
 from threading import Thread
 
-#TODO: use os.path.join instead of os.sep and concatenation
+# TODO: use os.path.join instead of os.sep and concatenation
 
 def create_INF_source_string(source_num, season, variation, type, layer, source_dir, source_file, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim):
     contents = "[Source" + source_num + "]\n"
@@ -76,6 +76,9 @@ def source_num_to_source_num_string(source_num, total_sources):
         return ""
 
     return str(source_num)
+
+def should_mask_file(img_mask_abs_path):
+    return O4_ESP_Globals.do_build_masks and img_mask_abs_path is not None and os.path.isfile(img_mask_abs_path)
 
 # getting None from this function is a good way of seeing if there are no seasons to build...
 def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
@@ -145,7 +148,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
 
         # make sure we have the mask tile created by Ortho4XP. even if do_build_masks is True, if tile not created
         # we don't tell resample to mask otherwise it will fail
-        should_mask = (O4_ESP_Globals.do_build_masks and os.path.isfile(img_mask_abs_path))
+        should_mask = should_mask_file(img_mask_abs_path)
         seasons_to_create = {
             "summer": O4_Config_Utils.create_ESP_summer,
             "spring": O4_Config_Utils.create_ESP_spring,
@@ -209,6 +212,15 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
 
         inf_file.write(contents)
 
+def add_image_as_anothers_alpha_channel(image_path, alpha_image_path, output_path):
+    im = Image.open(image_path).convert('RGB')
+    # Open alpha channel, ensuring single channel
+    alpha = Image.open(alpha_image_path).convert('L')
+
+    # Add that alpha channel to background image
+    im.putalpha(alpha)
+    im.save(output_path)
+
 def spawn_resample_process(filename):
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -227,6 +239,31 @@ def remove_file_if_exists(filename):
     except OSError:
         pass
 
+# this looks ugly. TODO: try to clean
+def create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path):
+    if O4_Config_Utils.create_ESP_night:
+        create_night(file_name + img_extension, file_name + "_night" + img_extension, img_mask_abs_path)
+    if O4_Config_Utils.create_ESP_spring:
+        create_spring(file_name + img_extension, file_name + "_spring" + img_extension, img_mask_abs_path)
+    if O4_Config_Utils.create_ESP_fall:
+        create_autumn(file_name + img_extension, file_name + "_fall" + img_extension, img_mask_abs_path)
+    if O4_Config_Utils.create_ESP_winter:
+        create_winter(file_name + img_extension, file_name + "_winter" + img_extension, img_mask_abs_path)
+    if O4_Config_Utils.create_ESP_hard_winter:
+        create_hard_winter(file_name + img_extension, file_name + "_hard_winter" + img_extension, img_mask_abs_path)
+
+    if O4_ESP_Globals.build_for_FS9 and should_mask_file(img_mask_abs_path):
+        if O4_Config_Utils.create_ESP_night:
+            add_image_as_anothers_alpha_channel(file_name + "_night" + img_extension, img_mask_abs_path, file_name + "_night.tga")
+        if O4_Config_Utils.create_ESP_spring:
+            add_image_as_anothers_alpha_channel(file_name + "_spring" + img_extension, img_mask_abs_path, file_name + "_spring.tga")
+        if O4_Config_Utils.create_ESP_fall:
+            add_image_as_anothers_alpha_channel(file_name + "_fall" + img_extension, img_mask_abs_path, file_name + "_fall.tga")
+        if O4_Config_Utils.create_ESP_winter:
+            add_image_as_anothers_alpha_channel(file_name + "_winter" + img_extension, img_mask_abs_path, file_name + "_winter.tga")
+        if O4_Config_Utils.create_ESP_hard_winter:
+            add_image_as_anothers_alpha_channel(file_name + "_hard_winter" + img_extension, img_mask_abs_path, file_name + "_hard_winter.tga")
+
 # TODO: cleanup processes when main program quits
 def worker(queue):
     # """Process files from the queue."""
@@ -236,27 +273,24 @@ def worker(queue):
             inf_abs_path = args[1]
             img_mask_abs_path = args[2]
 
+            img_extension = ".bmp"
+
+            if O4_ESP_Globals.build_for_FS9:
+                img_extension = ".tga"
+                if should_mask_file(img_mask_abs_path):
+                    add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension)
             # we create the night and seasonal textures at resample time, and delete them right after...
             # why? to not require a ridiculously large amount of storage space...
-            if O4_Config_Utils.create_ESP_night:
-                create_night(file_name + ".bmp", file_name + "_night.bmp", img_mask_abs_path)
-            if O4_Config_Utils.create_ESP_spring:
-                create_spring(file_name + ".bmp", file_name + "_spring.bmp", img_mask_abs_path)
-            if O4_Config_Utils.create_ESP_fall:
-                create_autumn(file_name + ".bmp", file_name + "_fall.bmp", img_mask_abs_path)
-            if O4_Config_Utils.create_ESP_winter:
-                create_winter(file_name + ".bmp", file_name + "_winter.bmp", img_mask_abs_path)
-            if O4_Config_Utils.create_ESP_hard_winter:
-                create_hard_winter(file_name + ".bmp", file_name + "_hard_winter.bmp", img_mask_abs_path)
+            create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
 
             spawn_resample_process(inf_abs_path)
             # now remove the extra night/season bmps
             # could check if we created night, season, etc but let's be lazy and use remove_file_if_exists
-            remove_file_if_exists(file_name + "_night.bmp")
-            remove_file_if_exists(file_name + "_spring.bmp")
-            remove_file_if_exists(file_name + "_fall.bmp")
-            remove_file_if_exists(file_name + "_winter.bmp")
-            remove_file_if_exists(file_name + "_hard_winter.bmp")
+            remove_file_if_exists(file_name + "_night" + img_extension)
+            remove_file_if_exists(file_name + "_spring" + img_extension)
+            remove_file_if_exists(file_name + "_fall" + img_extension)
+            remove_file_if_exists(file_name + "_winter" + img_extension)
+            remove_file_if_exists(file_name + "_hard_winter" + img_extension)
         except Exception as e: # catch exceptions to avoid exiting the
                                # thread prematurely
             print('%r failed: %s' % (args, e,))
@@ -344,7 +378,7 @@ def build_for_ESP(build_dir, tile):
                 img_mask_name = "_".join(full_file_name.split(".inf")[0].split("_")[0:2]) + ".tif"
                 img_mask_folder_abs_path = os.path.abspath(O4_ESP_Globals.mask_dir)
                 img_mask_abs_path = os.path.abspath(os.path.join(img_mask_folder_abs_path, img_mask_name))
-                should_mask = (O4_ESP_Globals.do_build_masks and os.path.isfile(img_mask_abs_path))
+                should_mask = should_mask_file(img_mask_abs_path)
                 if not should_mask:
                     img_mask_abs_path = None
 
