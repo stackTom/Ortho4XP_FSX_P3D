@@ -7,6 +7,9 @@
 using namespace Magick;
 using namespace std;
 
+// TODO: this is c++, use strings instead of char *
+// TODO: use only camel case or c style, not both
+
 static double nextDouble(double min, double max) {
     double f = (double) rand() / RAND_MAX;
 
@@ -142,6 +145,20 @@ double RandomNumberGenerator::nextDouble() {
     return this->dis(this->gen);
 }
 
+void write_image(Image img, char *outName) {
+    const char *extension = strrchr(outName, '.');
+    if (!extension || extension == outName) {
+        return;
+    }
+
+    string outString(outName);
+    if (!strcmp(extension + 1, "bmp")) {
+        outString = "BMP3:" + outString;
+    }
+
+    img.write(outString);
+}
+
 // the below functions are ports from FSET night/season creation scripts
 void c_create_night(char *imgName, char *outName, char *mask_img_path) {
     try {
@@ -197,9 +214,7 @@ void c_create_night(char *imgName, char *outName, char *mask_img_path) {
                 pixel[2] = vBlue;
             }
         );
-        string outString(outName);
-        outString = "BMP3:" + outString;
-        img.write(outString);
+        write_image(img, outName);
     } catch(Exception &error_) {
         cout << "Caught exception: " << error_.what() << endl;
     }
@@ -311,9 +326,7 @@ void c_create_hard_winter(char *imgName, char *outName, char *mask_img_path) {
                 pixel[2] = vBlue;
             }
         );
-        string outString(outName);
-        outString = "BMP3:" + outString;
-        img.write(outString);
+        write_image(img, outName);
     } catch(Exception &error_) {
         cout << "Caught exception: " << error_.what() << endl;
     }
@@ -372,9 +385,7 @@ void c_create_autumn(char *imgName, char *outName, char *mask_img_path) {
                 pixel[2] = vBlue;
             }
         );
-        string outString(outName);
-        outString = "BMP3:" + outString;
-        img.write(outString);
+        write_image(img, outName);
     } catch(Exception &error_) {
         cout << "Caught exception: " << error_.what() << endl;
     }
@@ -429,9 +440,7 @@ void c_create_spring(char *imgName, char *outName, char *mask_img_path) {
                 pixel[2] = vBlue;
             }
         );
-        string outString(outName);
-        outString = "BMP3:" + outString;
-        img.write(outString);
+        write_image(img, outName);
     } catch(Exception &error_) {
         cout << "Caught exception: " << error_.what() << endl;
     }
@@ -504,9 +513,7 @@ void c_create_winter(char *imgName, char *outName, char *mask_img_path) {
                 pixel[2] = vBlue;
             }
         );
-        string outString(outName);
-        outString = "BMP3:" + outString;
-        img.write(outString);
+        write_image(img, outName);
     } catch(Exception &error_) {
         cout << "Caught exception: " << error_.what() << endl;
     }
