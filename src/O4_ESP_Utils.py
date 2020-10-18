@@ -294,7 +294,6 @@ def worker(queue):
                 else:
                     # no mask, but fs2004 resample still needs the alpha channel. we just pass in an alpha with all 255 (white)
                     add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension, 255)
-                    print("WE DID IT " + file_name + img_extension)
 
             # we create the night and seasonal textures at resample time, and delete them right after...
             # why? to not require a ridiculously large amount of storage space...
