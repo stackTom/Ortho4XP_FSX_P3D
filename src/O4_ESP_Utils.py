@@ -80,6 +80,9 @@ def source_num_to_source_num_string(source_num, total_sources):
 def should_mask_file(img_mask_abs_path):
     return O4_ESP_Globals.do_build_masks and img_mask_abs_path is not None and os.path.isfile(img_mask_abs_path)
 
+def should_add_blend_mask(should_mask):
+    return should_mask and O4_ESP_Globals.build_for_FSX_P3D
+
 # getting None from this function is a good way of seeing if there are no seasons to build...
 def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
     string = ""
@@ -88,7 +91,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     if seasons_to_create["spring"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Spring", "March,April,May", type, layer, source_dir, source_file_name + "_spring" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
+        if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
         months_used_dict["March"] = True
@@ -96,20 +99,20 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
         months_used_dict["May"] = True
     if seasons_to_create["fall"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Fall", "September,October", type, layer, source_dir, source_file_name + "_fall" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
+        if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
         months_used_dict["September"] = True
         months_used_dict["October"] = True
     if seasons_to_create["winter"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Winter", "November", type, layer, source_dir, source_file_name + "_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
+        if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
         months_used_dict["November"] = True
     if seasons_to_create["hard_winter"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "HardWinter", "December,January,February", type, layer, source_dir, source_file_name + "_hard_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
+        if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
         months_used_dict["December"] = True
@@ -125,7 +128,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
         months_str = months_str[:-1]
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Summer", months_str, type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
+        if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
 
@@ -174,7 +177,11 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
 
         if O4_Config_Utils.create_ESP_night:
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night.bmp", str(img_top_left_tile[1]),
+            ext = ".bmp"
+            if O4_ESP_Globals.build_for_FS9:
+                ext = ".tga"
+
+            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(img_top_left_tile[1]),
                     str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
@@ -212,13 +219,18 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
 
         inf_file.write(contents)
 
-def add_image_as_anothers_alpha_channel(image_path, alpha_image_path, output_path):
+# TODO: for speedup, add alpha channel from c++
+def add_image_as_anothers_alpha_channel(image_path, alpha_image_path, output_path, custom_alpha=-1):
     im = Image.open(image_path).convert('RGB')
-    # Open alpha channel, ensuring single channel
-    alpha = Image.open(alpha_image_path).convert('L')
+    if custom_alpha < 0:
+        # Open alpha channel, ensuring single channel
+        alpha = Image.open(alpha_image_path).convert('L')
 
-    # Add that alpha channel to background image
-    im.putalpha(alpha)
+        # Add that alpha channel to background image
+        im.putalpha(alpha)
+    else:
+        im.putalpha(custom_alpha)
+
     im.save(output_path)
 
 def spawn_resample_process(filename):
@@ -279,6 +291,11 @@ def worker(queue):
                 img_extension = ".tga"
                 if should_mask_file(img_mask_abs_path):
                     add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension)
+                else:
+                    # no mask, but fs2004 resample still needs the alpha channel. we just pass in an alpha with all 255 (white)
+                    add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension, 255)
+                    print("WE DID IT " + file_name + img_extension)
+
             # we create the night and seasonal textures at resample time, and delete them right after...
             # why? to not require a ridiculously large amount of storage space...
             create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
