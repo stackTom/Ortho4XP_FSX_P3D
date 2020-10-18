@@ -58,6 +58,10 @@ def build_masks(tile,for_imagery=False):
         elif ttype=='parabolic':
             return 2*ratio-ratio**2
     ##########################################
+    if O4_ESP_Globals.build_for_FS9:
+        print("FS9 masks must be width 0, so ignoring custom masks width of %d" % (tile.masks_width))
+        tile.masks_width = 0
+
     UI.red_flag=False
     UI.logprint("Step 2.5 for tile lat=",tile.lat,", lon=",tile.lon,": starting.")
     UI.vprint(0,"\nStep 2.5 : Building masks for tile "+FNAMES.short_latlon(tile.lat,tile.lon)+" : \n--------\n")

@@ -9,6 +9,7 @@ using namespace std;
 
 // TODO: this is c++, use strings instead of char *
 // TODO: use only camel case or c style, not both
+// TODO: for speedup, add alpha channel from c++ and not in python
 
 static double nextDouble(double min, double max) {
     double f = (double) rand() / RAND_MAX;
