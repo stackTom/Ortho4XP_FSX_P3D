@@ -80,6 +80,7 @@ cfg_vars={
     'fill_nodata':         {'type':bool,'default':True,'hint':'When set, the no_data values in the raster will be filled by a nearest neighbour algorithm. If unset, they are turned into zero (can be useful for rasters with no_data over the whole oceanic part or partial LIDAR data).'},
     'FSX_P3D_resample_loc':    {'type':str,'default':'','hint':'Enter the location to your resample.exe for FSX/P3D'},
     'FS9_resample_loc':    {'type':str,'default':'','hint':'Enter the location to your resample.exe for FS9'},
+    'FS9_imagetool_loc':    {'type':str,'default':'','hint':'Enter the location to your imagetool.exe for FS9'},
     'ESP_scenproc_loc':    {'type':str,'default':'','hint':'Enter the location to your scenProc.exe'},
     'ESP_scenproc_script':    {'type':str,'default':'default.spc','hint':'Enter the file inside the ScenProc_configs folder to use for ScenProc'},
     'max_resample_processes': {'type':int,'default':8,'hint':'The max amount of resample processes to spawn'},

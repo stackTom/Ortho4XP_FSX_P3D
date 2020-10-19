@@ -299,7 +299,7 @@ def worker(queue):
             # why? to not require a ridiculously large amount of storage space...
             create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
 
-            spawn_resample_process(inf_abs_path)
+            #spawn_resample_process(inf_abs_path)
             # now remove the extra night/season bmps
             # could check if we created night, season, etc but let's be lazy and use remove_file_if_exists
             remove_file_if_exists(file_name + "_night" + img_extension)
@@ -408,3 +408,9 @@ def build_for_ESP(build_dir, tile):
     for t in threads: t.join() # wait for completion
     if scenproc_thread is not None:
         scenproc_thread.join()
+
+    if O4_ESP_Globals.build_for_FS9:
+        #C:\Users\fery2\Desktop\FS2004SDK\TERRAIN_SDK\Terrain_Tools\imagetool.exe -nogui I:\Ortho4XP_FSX_P3D\Orthophotos\+50-010\+51-001\BI_15\0*.tga
+        #   copy "I:\Ortho4XP_FSX_P3D\Orthophotos\+50-010\+51-001\BI_15\0*.mip" "I:\Ortho4XP_FSX_P3D\Orthophotos\+50-010\+51-001\BI_15\ADDON_SCENERY\Texture\0*.bmp"
+        print("%s -nogui %s0*.tga" % (O4_Config_Utils.FS9_imagetool_loc, os.path.abspath(build_dir)))
+        print("copy %s0*.mip %s\ADDON_SCENERY\Texture\0*.bmp" % (os.path.abspath(build_dir), os.path.abspath(build_dir)))
