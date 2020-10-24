@@ -11,6 +11,7 @@ from queue import Queue
 from threading import Thread
 
 # TODO: use os.path.join instead of os.sep and concatenation
+# TODO: use format strings instead of concatenation
 
 def create_INF_source_string(source_num, season, variation, type, layer, source_dir, source_file, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim):
     contents = "[Source" + source_num + "]\n"
@@ -40,9 +41,10 @@ def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
     if seasons_to_create:
         created_summer = False
         for season, should_build in seasons_to_create.items():
-            if should_build:
+            # for fs9, we gotta always build all seasons, so add 1 for every season
+            if should_build or O4_ESP_Globals.build_for_FS9:
                 total += 1
-                if season == "summer":
+                if season == "Summer":
                     created_summer = True
         # if at least one season has been built and it is not summer, we always need to create summer
         # to cover the remaining months
@@ -83,13 +85,26 @@ def should_mask_file(img_mask_abs_path):
 def should_add_blend_mask(should_mask):
     return should_mask and O4_ESP_Globals.build_for_FSX_P3D
 
+# if user doesn't specify night for fs9, it will just create empty black tile. Better to fill this in with the default
+# day texture? or just leave black? I guess leave black for now, it makes it more obvious that maybe they should enable night
+def add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
+    remaining_seasons_inf_str = ""
+    source_file_name, ext = os.path.splitext(source_file)
+    for season, should_build in seasons_to_create.items():
+        if not should_build:
+            # just build it with Summer for month variation, doesn't matter
+            remaining_seasons_inf_str += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, "Summer", type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
+            source_num += 1
+
+    return remaining_seasons_inf_str
+
 # getting None from this function is a good way of seeing if there are no seasons to build...
 def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
     string = ""
     source_file_name, ext = os.path.splitext(source_file)
     months_used_dict = { "January": False, "February": False, "March": False, "April": False, "May": False, "June": False, "July": False, "August": False, "September": False, "October": False, "November": False, "December": False }
 
-    if seasons_to_create["spring"]:
+    if seasons_to_create["Spring"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Spring", "March,April,May", type, layer, source_dir, source_file_name + "_spring" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
         if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
@@ -97,20 +112,20 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
         months_used_dict["March"] = True
         months_used_dict["April"] = True
         months_used_dict["May"] = True
-    if seasons_to_create["fall"]:
+    if seasons_to_create["Fall"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Fall", "September,October", type, layer, source_dir, source_file_name + "_fall" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
         if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
         months_used_dict["September"] = True
         months_used_dict["October"] = True
-    if seasons_to_create["winter"]:
+    if seasons_to_create["Winter"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Winter", "November", type, layer, source_dir, source_file_name + "_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
         if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
         months_used_dict["November"] = True
-    if seasons_to_create["hard_winter"]:
+    if seasons_to_create["HardWinter"]:
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "HardWinter", "December,January,February", type, layer, source_dir, source_file_name + "_hard_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
         if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
@@ -120,7 +135,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
         months_used_dict["February"] = True
     # create summer with variation which includes all those months that haven't been included yet. do this if either summer is specified in Ortho4XP.cfg OR
     # if at least one other season has been specified (ie string != "") in order that all months are specified if not all seasons are specified...
-    if seasons_to_create["summer"] or string != "":
+    if seasons_to_create["Summer"] or string != "":
         months_str = ""
         for month, has_been_used in months_used_dict.items():
             if not has_been_used:
@@ -132,9 +147,14 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
         source_num += 1
 
+    if O4_ESP_Globals.build_for_FS9:
+        string += add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask)
+        source_num += 1
+
     return (string if string != "" else None, source_num - 1)
 
 # TODO: all this night/season mask code is kind of terrible... need to refactor
+# TODO: do we really need the use_FS9_type? We can just use the build_for_FS9 global...
 def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
@@ -153,11 +173,11 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         # we don't tell resample to mask otherwise it will fail
         should_mask = should_mask_file(img_mask_abs_path)
         seasons_to_create = {
-            "summer": O4_Config_Utils.create_ESP_summer,
-            "spring": O4_Config_Utils.create_ESP_spring,
-            "fall": O4_Config_Utils.create_ESP_fall,
-            "winter": O4_Config_Utils.create_ESP_winter,
-            "hard_winter": O4_Config_Utils.create_ESP_hard_winter
+            "Summer": O4_Config_Utils.create_ESP_summer,
+            "Spring": O4_Config_Utils.create_ESP_spring,
+            "Fall": O4_Config_Utils.create_ESP_fall,
+            "Winter": O4_Config_Utils.create_ESP_winter,
+            "HardWinter": O4_Config_Utils.create_ESP_hard_winter
         }
         contents = ""
         total_num_sources = get_total_num_sources(seasons_to_create, O4_Config_Utils.create_ESP_night, should_mask)
@@ -206,9 +226,14 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         contents += "[Destination]\n"
         contents += "DestDir             = " + os.path.abspath(file_dir) + os.sep + "ADDON_SCENERY" + os.sep + "scenery\n"
         contents += "DestBaseFileName     = " + file_name_no_extension + "\n"
-        contents += "BuildSeasons        = 0\n"
+        contents += "BuildSeasons        = " + ("0" if (O4_ESP_Globals.build_for_FSX_P3D and seasons_string is not None) else "1") + "\n"
         contents += "UseSourceDimensions  = 1\n"
         contents += "CompressionQuality   = 100\n"
+        if O4_ESP_Globals.build_for_FS9:
+            contents += "NorthLat             = " + str(img_top_left_tile[0]) + "\n"
+            contents += "SouthLat             = " + str(img_bottom_right_tile[0]) + "\n"
+            contents += "WestLon             = " + str(img_top_left_tile[1]) + "\n"
+            contents += "EastLon             = " + str(img_bottom_right_tile[1]) + "\n"
 
         # Default land class textures will be used if the terrain system cannot find photo-imagery at LOD13 (5 meters per pixel) or greater detail.
         # source: https://docs.microsoft.com/en-us/previous-versions/microsoft-esp/cc707102(v=msdn.10)
