@@ -1,14 +1,15 @@
-from O4_Geo_Utils import *
+from O4_Geo_Utils import gtile_to_wgs84
 import O4_ESP_Globals
 import os
 import O4_File_Names as FNAMES
-from PIL import Image
 import O4_Config_Utils
 import subprocess
 from fast_image_mask import *
 import glob
 from queue import Queue
 from threading import Thread
+import math
+import O4_Imagery_Utils
 
 # TODO: use os.path.join instead of os.sep and concatenation
 # TODO: use format strings instead of concatenation
@@ -156,19 +157,33 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     return (string if string != "" else None, source_num - 1)
 
-def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, IMG_X_Y_DIM):
+def clip_to_lod_cell(coordinate, coordinate_multiple):
+    if coordinate >= 0:
+        return math.floor(coordinate / coordinate_multiple) * coordinate_multiple
+
+    return math.ceil(coordinate / coordinate_multiple) * coordinate_multiple
+
+def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile):
     # need to try to get to multiples of 0.010986328125 decimal degrees for lat
     # and 0.0146484375  for long according to documentation to fix black bars...
     # TODO: below code doesn't do this
-    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_Y_DIM
-    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_X_Y_DIM
-    lat_half_pixel_border_in_degrees = img_cell_y_dimension_deg * 0.5
-    lon_half_pixel_border_in_degrees = img_cell_x_dimension_deg * 0.5
+    LAT_MULTIPLE = 0.010986328125
+    LON_MULTIPLE = 0.0146484375
 
-    return_str = "NorthLat             = " + str(img_top_left_tile[0]) + "\n"
-    return_str += "SouthLat             = " + str(img_bottom_right_tile[0] + lat_half_pixel_border_in_degrees) + "\n"
-    return_str += "WestLon             = " + str(img_top_left_tile[1]) + "\n"
-    return_str += "EastLon             = " + str(img_bottom_right_tile[1] + lon_half_pixel_border_in_degrees) + "\n"
+    north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE)
+    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE)
+    west_lon = clip_to_lod_cell(img_top_left_tile[1], LON_MULTIPLE)
+    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], LON_MULTIPLE)
+
+    print("before %s, after %s" % (img_top_left_tile[0], north_lat))
+    print("before %s, after %s" % (img_bottom_right_tile[0], south_lat))
+    print("before %s, after %s" % (img_top_left_tile[1], west_lon))
+    print("before %s, after %s" % (img_bottom_right_tile[1], east_lon))
+
+    return_str = "NorthLat             = " + str(north_lat) + "\n"
+    return_str += "SouthLat             = " + str(south_lat) + "\n"
+    return_str += "WestLon             = " + str(west_lon) + "\n"
+    return_str += "EastLon             = " + str(east_lon) + "\n"
 
     return return_str
 
@@ -178,10 +193,9 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
-    # TODO: add support for images of different sizes (I think different websites make different size images), but for now 4096x4096 support is good enough
-    IMG_X_Y_DIM = 4096
-    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_Y_DIM
-    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_X_Y_DIM
+    (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
+    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
+    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
         img_mask_name = "_".join(file_name.split(".bmp")[0].split("_")[0:2]) + ".tif"
@@ -208,7 +222,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         if use_FS9_type:
             bmp_type = "Custom"
         seasons_string, num_seasons = get_seasons_inf_string(seasons_to_create, current_source_num, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, img_mask_folder_abs_path, img_mask_abs_path,
-        str(img_top_left_tile[1]), str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg), total_num_sources, should_mask)
+        str(img_top_left_tile[1]), str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg), total_num_sources, should_mask)
         # if seasons_string is not None, there are seasons to build in Ortho4XP.cfg
         if seasons_string:
             current_source_num += num_seasons
@@ -221,7 +235,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
                 ext = ".tga"
 
             contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(img_top_left_tile[1]),
-                    str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
+                    str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
             current_source_num += 1
@@ -230,7 +244,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         if seasons_string is None:
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
             contents += create_INF_source_string(source_num_str, None, None, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, str(img_top_left_tile[1]),
-                        str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
+                        str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
 
@@ -240,7 +254,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             mask_type = "Custom" if use_FS9_type else "Tiff"
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
             contents += create_INF_source_string(source_num_str, None, None, bmp_type, "None", img_mask_folder_abs_path, img_mask_name, str(img_top_left_tile[1]),
-                    str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
+                    str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
 
         contents += "[Destination]\n"
         contents += "DestDir             = " + os.path.abspath(file_dir) + os.sep + "ADDON_SCENERY" + os.sep + "scenery\n"
@@ -249,7 +263,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         contents += "UseSourceDimensions  = " + ("0" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "1") + "\n"
         contents += "CompressionQuality   = 100\n"
         if O4_ESP_Globals.build_for_FS9:
-            contents += get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, IMG_X_Y_DIM)
+            contents += get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile)
 
         # Default land class textures will be used if the terrain system cannot find photo-imagery at LOD13 (5 meters per pixel) or greater detail.
         # source: https://docs.microsoft.com/en-us/previous-versions/microsoft-esp/cc707102(v=msdn.10)
@@ -259,20 +273,6 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             contents += "LOD = Auto, 13\n"
 
         inf_file.write(contents)
-
-# TODO: for speedup, add alpha channel from c++
-def add_image_as_anothers_alpha_channel(image_path, alpha_image_path, output_path, custom_alpha=-1):
-    im = Image.open(image_path).convert('RGB')
-    if custom_alpha < 0:
-        # Open alpha channel, ensuring single channel
-        alpha = Image.open(alpha_image_path).convert('L')
-
-        # Add that alpha channel to background image
-        im.putalpha(alpha)
-    else:
-        im.putalpha(custom_alpha)
-
-    im.save(output_path)
 
 def spawn_resample_process(filename):
     startupinfo = subprocess.STARTUPINFO()
@@ -307,15 +307,15 @@ def create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_pa
 
     if O4_ESP_Globals.build_for_FS9 and should_mask_file(img_mask_abs_path):
         if O4_Config_Utils.create_ESP_night:
-            add_image_as_anothers_alpha_channel(file_name + "_night" + img_extension, img_mask_abs_path, file_name + "_night.tga")
+            O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_night" + img_extension, img_mask_abs_path, file_name + "_night.tga")
         if O4_Config_Utils.create_ESP_spring:
-            add_image_as_anothers_alpha_channel(file_name + "_spring" + img_extension, img_mask_abs_path, file_name + "_spring.tga")
+            O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_spring" + img_extension, img_mask_abs_path, file_name + "_spring.tga")
         if O4_Config_Utils.create_ESP_fall:
-            add_image_as_anothers_alpha_channel(file_name + "_fall" + img_extension, img_mask_abs_path, file_name + "_fall.tga")
+            O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_fall" + img_extension, img_mask_abs_path, file_name + "_fall.tga")
         if O4_Config_Utils.create_ESP_winter:
-            add_image_as_anothers_alpha_channel(file_name + "_winter" + img_extension, img_mask_abs_path, file_name + "_winter.tga")
+            O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_winter" + img_extension, img_mask_abs_path, file_name + "_winter.tga")
         if O4_Config_Utils.create_ESP_hard_winter:
-            add_image_as_anothers_alpha_channel(file_name + "_hard_winter" + img_extension, img_mask_abs_path, file_name + "_hard_winter.tga")
+            O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_hard_winter" + img_extension, img_mask_abs_path, file_name + "_hard_winter.tga")
 
 # TODO: cleanup processes when main program quits
 def worker(queue):
@@ -331,10 +331,10 @@ def worker(queue):
             if O4_ESP_Globals.build_for_FS9:
                 img_extension = ".tga"
                 if should_mask_file(img_mask_abs_path):
-                    add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension)
+                    O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension)
                 else:
                     # no mask, but fs2004 resample still needs the alpha channel. we just pass in an alpha with all 255 (white)
-                    add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension, 255)
+                    O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + img_extension, img_mask_abs_path, file_name + img_extension, 255)
 
             # we create the night and seasonal textures at resample time, and delete them right after...
             # why? to not require a ridiculously large amount of storage space...

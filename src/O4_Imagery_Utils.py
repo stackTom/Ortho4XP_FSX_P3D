@@ -32,6 +32,7 @@ import O4_Mask_Utils as MASK
 from O4_Parallel_Utils import parallel_execute
 import O4_ESP_Globals
 import O4_ESP_Utils
+from PIL import Image
 
 http_timeout=10
 check_tms_response=False
@@ -1504,3 +1505,25 @@ def geotag(input_file_name):
             break
         print("WARNING: Could not convert texture",out_file_name)
         time.sleep(1)
+
+# TODO: for speedup, add alpha channel from c++
+# TODO: surround Image.open() with with statement....
+def add_image_as_anothers_alpha_channel(image_path, alpha_image_path, output_path, custom_alpha=-1):
+    im = Image.open(image_path).convert('RGB')
+    if custom_alpha < 0:
+        # Open alpha channel, ensuring single channel
+        alpha = Image.open(alpha_image_path).convert('L')
+
+        # Add that alpha channel to background image
+        im.putalpha(alpha)
+    else:
+        im.putalpha(custom_alpha)
+
+    im.save(output_path)
+
+def get_image_dimensions(image_path):
+    dims = None
+    with Image.open(image_path) as img:
+        dims = img.size
+
+    return dims
