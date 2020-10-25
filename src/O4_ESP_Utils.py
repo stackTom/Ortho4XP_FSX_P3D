@@ -90,13 +90,15 @@ def should_add_blend_mask(should_mask):
 def add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
     remaining_seasons_inf_str = ""
     source_file_name, ext = os.path.splitext(source_file)
+    num_seasons_added = 0
     for season, should_build in seasons_to_create.items():
         if not should_build:
-            # just build it with Summer for month variation, doesn't matter
-            remaining_seasons_inf_str += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, "Summer", type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
+            # just build it with January for month variation, doesn't matter
+            remaining_seasons_inf_str += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, "January", type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
             source_num += 1
+            num_seasons_added += 1
 
-    return remaining_seasons_inf_str
+    return (remaining_seasons_inf_str, num_seasons_added)
 
 # getting None from this function is a good way of seeing if there are no seasons to build...
 def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
@@ -148,10 +150,27 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
         source_num += 1
 
     if O4_ESP_Globals.build_for_FS9:
-        string += add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask)
-        source_num += 1
+        (remaining_seasons, seasons_added) = add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask)
+        string += remaining_seasons
+        source_num += seasons_added
 
     return (string if string != "" else None, source_num - 1)
+
+def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, IMG_X_Y_DIM):
+    # need to try to get to multiples of 0.010986328125 decimal degrees for lat
+    # and 0.0146484375  for long according to documentation to fix black bars...
+    # TODO: below code doesn't do this
+    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_Y_DIM
+    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_X_Y_DIM
+    lat_half_pixel_border_in_degrees = img_cell_y_dimension_deg * 0.5
+    lon_half_pixel_border_in_degrees = img_cell_x_dimension_deg * 0.5
+
+    return_str = "NorthLat             = " + str(img_top_left_tile[0]) + "\n"
+    return_str += "SouthLat             = " + str(img_bottom_right_tile[0] + lat_half_pixel_border_in_degrees) + "\n"
+    return_str += "WestLon             = " + str(img_top_left_tile[1]) + "\n"
+    return_str += "EastLon             = " + str(img_bottom_right_tile[1] + lon_half_pixel_border_in_degrees) + "\n"
+
+    return return_str
 
 # TODO: all this night/season mask code is kind of terrible... need to refactor
 # TODO: do we really need the use_FS9_type? We can just use the build_for_FS9 global...
@@ -226,14 +245,11 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         contents += "[Destination]\n"
         contents += "DestDir             = " + os.path.abspath(file_dir) + os.sep + "ADDON_SCENERY" + os.sep + "scenery\n"
         contents += "DestBaseFileName     = " + file_name_no_extension + "\n"
-        contents += "BuildSeasons        = " + ("0" if (O4_ESP_Globals.build_for_FSX_P3D and seasons_string is not None) else "1") + "\n"
-        contents += "UseSourceDimensions  = 1\n"
+        contents += "BuildSeasons        = " + ("1" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "0") + "\n"
+        contents += "UseSourceDimensions  = " + ("0" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "1") + "\n"
         contents += "CompressionQuality   = 100\n"
         if O4_ESP_Globals.build_for_FS9:
-            contents += "NorthLat             = " + str(img_top_left_tile[0]) + "\n"
-            contents += "SouthLat             = " + str(img_bottom_right_tile[0]) + "\n"
-            contents += "WestLon             = " + str(img_top_left_tile[1]) + "\n"
-            contents += "EastLon             = " + str(img_bottom_right_tile[1]) + "\n"
+            contents += get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, IMG_X_Y_DIM)
 
         # Default land class textures will be used if the terrain system cannot find photo-imagery at LOD13 (5 meters per pixel) or greater detail.
         # source: https://docs.microsoft.com/en-us/previous-versions/microsoft-esp/cc707102(v=msdn.10)
@@ -322,9 +338,9 @@ def worker(queue):
 
             # we create the night and seasonal textures at resample time, and delete them right after...
             # why? to not require a ridiculously large amount of storage space...
-            create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
+            # create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
 
-            #spawn_resample_process(inf_abs_path)
+            # spawn_resample_process(inf_abs_path)
             # now remove the extra night/season bmps
             # could check if we created night, season, etc but let's be lazy and use remove_file_if_exists
             remove_file_if_exists(file_name + "_night" + img_extension)
@@ -358,32 +374,50 @@ def run_scenproc_threaded(queue):
             print('%r failed: %s' % (args, e,))
 
 
+def can_build_for_ESP():
+    if O4_ESP_Globals.build_for_FSX_P3D:
+        if O4_Config_Utils.FSX_P3D_resample_loc is '':
+            print("No FSX/P3D resample.exe is specified in Ortho4XP.cfg, quitting")
+            return False
+        if not os.path.isfile(O4_Config_Utils.FSX_P3D_resample_loc):
+            print("FSX/P3D resample.exe doesn't exist at " + O4_Config_Utils.FSX_P3D_resample_loc + ", quitting")
+            return False
+
+    if O4_ESP_Globals.build_for_FS9:
+        if O4_Config_Utils.FS9_resample_loc is '':
+            print("No FS9 resample.exe is specified in Ortho4XP.cfg, quitting")
+            return False
+        if not os.path.isfile(O4_Config_Utils.FS9_resample_loc):
+            print("FS9 resample.exe doesn't exist at " + O4_Config_Utils.FS9_resample_loc + ", quitting")
+            return False
+
+    return True
+
 def build_for_ESP(build_dir, tile):
     if not build_dir:
         print("ESP_build_dir is None inside of resample... something went wrong, so can't run resample")
         return
 
-    if O4_Config_Utils.FSX_P3D_resample_loc is '':
-        print("No resample.exe is specified in Ortho4XP.cfg, quitting")
+    if not can_build_for_ESP():
         return
-    if not os.path.isfile(O4_Config_Utils.FSX_P3D_resample_loc):
-        print("resample.exe doesn't exist at " + O4_Config_Utils.FSX_P3D_resample_loc + ", quitting")
-        return
-
     # run ScenProc if user has specified path to the scenProc.exe and OSM file was successfully downloaded previously
     scenproc_osm_directory = os.path.abspath(os.path.join(FNAMES.osm_dir(tile.lat, tile.lon), "scenproc_osm_data"))
     scenproc_thread = None
     q2 = None
+
+    # fs9 doesn't seem to create these folders. Create them... won't hurt for fsx/p3d either
+    addon_scenery_folder = os.path.abspath(os.path.join(build_dir, "ADDON_SCENERY"))
+    scenery_folder = os.path.abspath(os.path.join(addon_scenery_folder, "scenery"))
+    texture_folder = os.path.abspath(os.path.join(addon_scenery_folder, "Texture"))
+    if not os.path.exists(addon_scenery_folder):
+        os.mkdir(addon_scenery_folder)
+    if not os.path.exists(texture_folder):
+        os.mkdir(texture_folder)
+    if not os.path.exists(scenery_folder):
+        os.mkdir(scenery_folder)
+
     if os.path.isfile(O4_Config_Utils.ESP_scenproc_loc) and os.path.exists(scenproc_osm_directory):
         scenproc_script_file = os.path.abspath(FNAMES.scenproc_script_file(O4_Config_Utils.ESP_scenproc_script))
-        addon_scenery_folder = os.path.abspath(os.path.join(build_dir, "ADDON_SCENERY"))
-        texture_folder = os.path.abspath(os.path.join(addon_scenery_folder, "texture"))
-        # in case resample threads haven't created ADDON_SCENERY folder yet
-        # TODO: maybe race condition??
-        if not os.path.exists(addon_scenery_folder):
-            os.mkdir(addon_scenery_folder)
-        if not os.path.exists(texture_folder):
-            os.mkdir(texture_folder)
 
         q2 = Queue()
         scenproc_thread = Thread(target=run_scenproc_threaded, args=(q2, ))
@@ -434,8 +468,35 @@ def build_for_ESP(build_dir, tile):
     if scenproc_thread is not None:
         scenproc_thread.join()
 
+    # cleanup fs9 imagetool files
     if O4_ESP_Globals.build_for_FS9:
-        #C:\Users\fery2\Desktop\FS2004SDK\TERRAIN_SDK\Terrain_Tools\imagetool.exe -nogui I:\Ortho4XP_FSX_P3D\Orthophotos\+50-010\+51-001\BI_15\0*.tga
-        #   copy "I:\Ortho4XP_FSX_P3D\Orthophotos\+50-010\+51-001\BI_15\0*.mip" "I:\Ortho4XP_FSX_P3D\Orthophotos\+50-010\+51-001\BI_15\ADDON_SCENERY\Texture\0*.bmp"
-        print("%s -nogui %s0*.tga" % (O4_Config_Utils.FS9_imagetool_loc, os.path.abspath(build_dir)))
-        print("copy %s0*.mip %s\ADDON_SCENERY\Texture\0*.bmp" % (os.path.abspath(build_dir), os.path.abspath(build_dir)))
+        return
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        # possible BUG: can we ever download a tga which starts with a 0?
+        tgas = "\"%s\\0*.tga\"" % (os.path.abspath(build_dir))
+        mips = "\"%s\\0*.mip\"" % (os.path.abspath(build_dir))
+        print("Running ImageTool.exe\n\"%s\" -nogui -terrainphoto %s" % (O4_Config_Utils.FS9_imagetool_loc, tgas))
+        process = subprocess.Popen([O4_Config_Utils.FS9_imagetool_loc, "-nogui", "-terrainphoto", tgas],
+        creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        # wait until done
+        process.communicate()
+
+        print("copy %s \"%s\\ADDON_SCENERY\\Texture\\0*.bmp\"" % (mips, os.path.abspath(build_dir)))
+        process = subprocess.Popen(["copy", mips,
+        "\"%s\\ADDON_SCENERY\\Texture\\0*.bmp\"" % (os.path.abspath(build_dir))],
+        creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        # wait until done
+        process.communicate()
+
+        print("spawning delete")
+        process = subprocess.Popen(["del", mips], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        # wait until done
+        process.communicate()
+
+        print("spawning other thing")
+        process = subprocess.Popen(["del", tgas], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        # wait until done
+        process.communicate()
+
+        print("done")
