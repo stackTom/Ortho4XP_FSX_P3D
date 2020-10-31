@@ -157,23 +157,45 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     return (string if string != "" else None, source_num - 1)
 
-def clip_to_lod_cell(coordinate, coordinate_multiple):
-    if coordinate >= 0:
-        return math.floor(coordinate / coordinate_multiple) * coordinate_multiple
+def clip_to_lod_cell(coordinate, coordinate_multiple, coordinate_type):
+    quad_tree_id_type = None
 
-    return math.ceil(coordinate / coordinate_multiple) * coordinate_multiple
+    if coordinate_type == "Latitude":
+        quad_tree_id_type = "V"
+    elif coordinate_type == "Longitude":
+        quad_tree_id_type = "U"
+
+    quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, 13))
+
+    return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, 13)
+
+def coord_to_quadtree_id(coordinate, coord_type, lod):
+    if coord_type == "Latitude":
+        return -((coordinate - 90) * (2 ** lod)) / 90
+    if coord_type == "Longitude":
+        return ((coordinate + 180) * (2 ** lod)) / 120
+
+    raise Exception("Unknown coordinate type")
+
+def quadtree_id_to_coord(id, id_type, lod):
+    if id_type == "V":
+        return 90 - id * (90 / 2 ** lod)
+    if id_type == "U":
+        return -180 + id * (120 / 2 ** lod)
+
+    raise Exception("Unknown id type")
 
 def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile):
     # need to try to get to multiples of 0.010986328125 decimal degrees for lat
     # and 0.0146484375  for long according to documentation to fix black bars...
     # TODO: below code doesn't do this
-    LAT_MULTIPLE = 0.010986328125
-    LON_MULTIPLE = 0.0146484375
+    LAT_MULTIPLE = 90 / 2 ** 13 # 0.010986328125
+    LON_MULTIPLE = 120 / 2 ** 13 # 0.0146484375
 
-    north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE)
-    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE)
-    west_lon = clip_to_lod_cell(img_top_left_tile[1], LON_MULTIPLE)
-    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], LON_MULTIPLE)
+    north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE, "Latitude")
+    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE, "Latitude") + (-1e-13)
+    west_lon = clip_to_lod_cell(img_top_left_tile[1], LON_MULTIPLE, "Longitude")
+    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], LON_MULTIPLE, "Longitude") + (1e-9)
 
     print("before %s, after %s" % (img_top_left_tile[0], north_lat))
     print("before %s, after %s" % (img_bottom_right_tile[0], south_lat))
