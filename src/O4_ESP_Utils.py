@@ -37,6 +37,12 @@ def create_INF_source_string(source_num, season, variation, type, layer, source_
 
     return contents
 
+def should_mask_file(img_mask_abs_path):
+    return O4_ESP_Globals.do_build_masks and img_mask_abs_path is not None and os.path.isfile(img_mask_abs_path)
+
+def should_add_blend_mask(should_mask):
+    return should_mask and O4_ESP_Globals.build_for_FSX_P3D
+
 def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
     total = 0;
     if seasons_to_create:
@@ -52,7 +58,7 @@ def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
         if total > 0 and not created_summer:
             total += 1
 
-    if build_water_mask:
+    if should_add_blend_mask(build_water_mask):
         # if total == 0, no seasons are being built, so we need to account for the generic, non season bmp source entry
         # TODO: when no seasons being built, just use your new logic which sets the season to summer and sets variation to all months not used...
         if total == 0:
@@ -79,12 +85,6 @@ def source_num_to_source_num_string(source_num, total_sources):
         return ""
 
     return str(source_num)
-
-def should_mask_file(img_mask_abs_path):
-    return O4_ESP_Globals.do_build_masks and img_mask_abs_path is not None and os.path.isfile(img_mask_abs_path)
-
-def should_add_blend_mask(should_mask):
-    return should_mask and O4_ESP_Globals.build_for_FSX_P3D
 
 # if user doesn't specify night for fs9, it will just create empty black tile. Better to fill this in with the default
 # day texture? or just leave black? I guess leave black for now, it makes it more obvious that maybe they should enable night
@@ -186,8 +186,8 @@ def quadtree_id_to_coord(id, id_type, lod):
     raise Exception("Unknown id type")
 
 def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
-    LAT_MULTIPLE = 90 / 2 ** lod # 0.010986328125
-    LON_MULTIPLE = 120 / 2 ** lod # 0.0146484375
+    LAT_MULTIPLE = 90 / 2 ** lod
+    LON_MULTIPLE = 120 / 2 ** lod
 
     north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE, "Latitude", lod)
     south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE, "Latitude", lod)
@@ -272,7 +272,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
 
             contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(img_top_left_tile[1]),
                     str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
-            if should_mask:
+            if should_add_blend_mask(should_mask):
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
             current_source_num += 1
 
@@ -281,12 +281,12 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
             contents += create_INF_source_string(source_num_str, None, None, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, str(img_top_left_tile[1]),
                         str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
-            if should_mask:
+            if should_add_blend_mask(should_mask):
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
 
             current_source_num += 1
 
-        if should_mask:
+        if should_add_blend_mask(should_mask):
             mask_type = "Custom" if use_FS9_type else "Tiff"
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
             contents += create_INF_source_string(source_num_str, None, None, bmp_type, "None", img_mask_folder_abs_path, img_mask_name, str(img_top_left_tile[1]),
@@ -374,9 +374,9 @@ def worker(queue):
 
             # we create the night and seasonal textures at resample time, and delete them right after...
             # why? to not require a ridiculously large amount of storage space...
-            # create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
+            create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
 
-            # spawn_resample_process(inf_abs_path)
+            spawn_resample_process(inf_abs_path)
             # now remove the extra night/season bmps
             # could check if we created night, season, etc but let's be lazy and use remove_file_if_exists
             remove_file_if_exists(file_name + "_night" + img_extension)
@@ -506,32 +506,26 @@ def build_for_ESP(build_dir, tile):
 
     # cleanup fs9 imagetool files
     if O4_ESP_Globals.build_for_FS9:
-        return
         startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         # possible BUG: can we ever download a tga which starts with a 0?
-        tgas = "\"%s\\0*.tga\"" % (os.path.abspath(build_dir))
-        mips = "\"%s\\0*.mip\"" % (os.path.abspath(build_dir))
-        print("Running ImageTool.exe\n\"%s\" -nogui -terrainphoto %s" % (O4_Config_Utils.FS9_imagetool_loc, tgas))
+        tgas = "%s\\0*.tga" % (os.path.abspath(build_dir))
+        mips = "%s\\0*.mip" % (os.path.abspath(build_dir))
         process = subprocess.Popen([O4_Config_Utils.FS9_imagetool_loc, "-nogui", "-terrainphoto", tgas],
         creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
         # wait until done
         process.communicate()
 
-        print("copy %s \"%s\\ADDON_SCENERY\\Texture\\0*.bmp\"" % (mips, os.path.abspath(build_dir)))
-        process = subprocess.Popen(["copy", mips,
-        "\"%s\\ADDON_SCENERY\\Texture\\0*.bmp\"" % (os.path.abspath(build_dir))],
-        creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        process = subprocess.Popen(["copy", "/y", "%s" % (mips),
+        "%s\\ADDON_SCENERY\\Texture\\0*.bmp" % (os.path.abspath(build_dir))],
+        creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo, shell=True)
         # wait until done
         process.communicate()
 
-        print("spawning delete")
-        process = subprocess.Popen(["del", mips], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        process = subprocess.Popen(["del", "%s" % (mips)], startupinfo=startupinfo, shell=True)
         # wait until done
         process.communicate()
 
-        print("spawning other thing")
-        process = subprocess.Popen(["del", tgas], creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo)
+        process = subprocess.Popen(["del", "%s" % (tgas)], startupinfo=startupinfo, shell=True)
         # wait until done
         process.communicate()
 
