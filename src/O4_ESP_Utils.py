@@ -157,7 +157,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     return (string if string != "" else None, source_num - 1)
 
-def clip_to_lod_cell(coordinate, coordinate_multiple, coordinate_type):
+def clip_to_lod_cell(coordinate, coordinate_multiple, coordinate_type, lod):
     quad_tree_id_type = None
 
     if coordinate_type == "Latitude":
@@ -165,9 +165,9 @@ def clip_to_lod_cell(coordinate, coordinate_multiple, coordinate_type):
     elif coordinate_type == "Longitude":
         quad_tree_id_type = "U"
 
-    quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, 13))
+    quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
 
-    return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, 13)
+    return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, lod)
 
 def coord_to_quadtree_id(coordinate, coord_type, lod):
     if coord_type == "Latitude":
@@ -185,17 +185,24 @@ def quadtree_id_to_coord(id, id_type, lod):
 
     raise Exception("Unknown id type")
 
-def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile):
-    # need to try to get to multiples of 0.010986328125 decimal degrees for lat
-    # and 0.0146484375  for long according to documentation to fix black bars...
-    # TODO: below code doesn't do this
-    LAT_MULTIPLE = 90 / 2 ** 13 # 0.010986328125
-    LON_MULTIPLE = 120 / 2 ** 13 # 0.0146484375
+def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
+    LAT_MULTIPLE = 90 / 2 ** lod # 0.010986328125
+    LON_MULTIPLE = 120 / 2 ** lod # 0.0146484375
 
-    north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE, "Latitude")
-    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE, "Latitude") + (-1e-13)
-    west_lon = clip_to_lod_cell(img_top_left_tile[1], LON_MULTIPLE, "Longitude")
-    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], LON_MULTIPLE, "Longitude") + (1e-9)
+    north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE, "Latitude", lod)
+    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE, "Latitude", lod)
+    west_lon = clip_to_lod_cell(img_top_left_tile[1], LON_MULTIPLE, "Longitude", lod)
+    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], LON_MULTIPLE, "Longitude", lod)
+
+    return (north_lat, south_lat, west_lon, east_lon)
+
+def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
+    clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
+
+    north_lat = clipped_coords[0] - (0.5 * img_cell_y_dimension_deg)
+    south_lat = clipped_coords[1] + (0.5 * img_cell_y_dimension_deg)
+    west_lon = clipped_coords[2] + (0.5 * img_cell_x_dimension_deg)
+    east_lon = clipped_coords[3] - (0.5 * img_cell_x_dimension_deg)
 
     print("before %s, after %s" % (img_top_left_tile[0], north_lat))
     print("before %s, after %s" % (img_bottom_right_tile[0], south_lat))
@@ -215,6 +222,13 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
+    if O4_ESP_Globals.build_for_FS9:
+        clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
+        print("BEFORE " + str(img_top_left_tile) + " " + str(img_bottom_right_tile))
+        img_top_left_tile = (clipped_coords[0], clipped_coords[2])
+        img_bottom_right_tile = (clipped_coords[1], clipped_coords[3])
+        print("AFTER " + str(img_top_left_tile) + " " + str(img_bottom_right_tile))
+
     (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
     img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
     img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
@@ -285,7 +299,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         contents += "UseSourceDimensions  = " + ("0" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "1") + "\n"
         contents += "CompressionQuality   = 100\n"
         if O4_ESP_Globals.build_for_FS9:
-            contents += get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile)
+            contents += get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
 
         # Default land class textures will be used if the terrain system cannot find photo-imagery at LOD13 (5 meters per pixel) or greater detail.
         # source: https://docs.microsoft.com/en-us/previous-versions/microsoft-esp/cc707102(v=msdn.10)
