@@ -157,7 +157,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     return (string if string != "" else None, source_num - 1)
 
-def clip_to_lod_cell(coordinate, coordinate_multiple, coordinate_type, lod):
+def clip_to_lod_cell(coordinate, coordinate_type, lod):
     quad_tree_id_type = None
 
     if coordinate_type == "Latitude":
@@ -166,6 +166,7 @@ def clip_to_lod_cell(coordinate, coordinate_multiple, coordinate_type, lod):
         quad_tree_id_type = "U"
 
     quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
+    print("CLIPPING TO ", quad_tree_id_clipped)
 
     return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, lod)
 
@@ -186,13 +187,10 @@ def quadtree_id_to_coord(id, id_type, lod):
     raise Exception("Unknown id type")
 
 def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
-    LAT_MULTIPLE = 90 / 2 ** lod
-    LON_MULTIPLE = 120 / 2 ** lod
-
-    north_lat = clip_to_lod_cell(img_top_left_tile[0], LAT_MULTIPLE, "Latitude", lod)
-    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], LAT_MULTIPLE, "Latitude", lod)
-    west_lon = clip_to_lod_cell(img_top_left_tile[1], LON_MULTIPLE, "Longitude", lod)
-    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], LON_MULTIPLE, "Longitude", lod)
+    north_lat = clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
+    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
+    west_lon = clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
+    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
@@ -429,6 +427,15 @@ def can_build_for_ESP():
 
     return True
 
+# wrote own function because couldn't get windows copy to work with wildcard even with shell=True
+def move_mips_to_texture_folder(mips_path, texture_path, new_extension):
+    files = glob.glob(mips_path)
+    for f in files:
+        base_name = os.path.basename(f)
+        name, ext = os.path.splitext(base_name)
+        new_path = texture_path + name + ".bmp"
+        os.rename(f, new_path)
+
 def build_for_ESP(build_dir, tile):
     if not build_dir:
         print("ESP_build_dir is None inside of resample... something went wrong, so can't run resample")
@@ -515,18 +522,8 @@ def build_for_ESP(build_dir, tile):
         # wait until done
         process.communicate()
 
-        process = subprocess.Popen(["copy", "/y", "%s" % (mips),
-        "%s\\ADDON_SCENERY\\Texture\\0*.bmp" % (os.path.abspath(build_dir))],
-        creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startupinfo, shell=True)
-        # wait until done
-        process.communicate()
-
-        process = subprocess.Popen(["del", "%s" % (mips)], startupinfo=startupinfo, shell=True)
-        # wait until done
-        process.communicate()
+        move_mips_to_texture_folder("%s" % (mips), "%s\\ADDON_SCENERY\\Texture\\" % (os.path.abspath(build_dir)), ".bmp")
 
         process = subprocess.Popen(["del", "%s" % (tgas)], startupinfo=startupinfo, shell=True)
         # wait until done
         process.communicate()
-
-        print("done")
