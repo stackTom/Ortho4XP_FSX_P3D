@@ -33,6 +33,7 @@ from O4_Parallel_Utils import parallel_execute
 import O4_ESP_Globals
 import O4_ESP_Utils
 from PIL import Image
+from fast_image_mask import *
 
 http_timeout=10
 check_tms_response=False

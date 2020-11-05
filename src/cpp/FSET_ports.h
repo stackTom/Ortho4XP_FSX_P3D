@@ -160,6 +160,7 @@ void c_create_hard_winter(char *imgName, char *outName, char *mask_img_path);
 void c_create_autumn(char *imgName, char *outName, char *mask_img_path);
 void c_create_spring(char *imgName, char *outName, char *mask_img_path);
 void c_create_winter(char *imgName, char *outName, char *mask_img_path);
+void c_FS9_mask_main_image(char *imgName, char *outName, char *mask_img_path);
 
 #endif
 

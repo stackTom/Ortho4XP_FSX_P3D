@@ -196,11 +196,12 @@ def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
 
 def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
     clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
+    PIXEL_OFFSET_MULTIPLIER = 0.5
 
-    north_lat = clipped_coords[0] - (0.5 * img_cell_y_dimension_deg)
-    south_lat = clipped_coords[1] + (0.5 * img_cell_y_dimension_deg)
-    west_lon = clipped_coords[2] + (0.5 * img_cell_x_dimension_deg)
-    east_lon = clipped_coords[3] - (0.5 * img_cell_x_dimension_deg)
+    north_lat = clipped_coords[0] - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    south_lat = clipped_coords[1] + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    west_lon = clipped_coords[2] + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    east_lon = clipped_coords[3] - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
 
     print("before %s, after %s" % (img_top_left_tile[0], north_lat))
     print("before %s, after %s" % (img_bottom_right_tile[0], south_lat))
@@ -220,6 +221,8 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
+    (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
+
     if O4_ESP_Globals.build_for_FS9:
         clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
         print("BEFORE " + str(img_top_left_tile) + " " + str(img_bottom_right_tile))
@@ -227,7 +230,6 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         img_bottom_right_tile = (clipped_coords[1], clipped_coords[3])
         print("AFTER " + str(img_top_left_tile) + " " + str(img_bottom_right_tile))
 
-    (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
     img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
     img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
 
@@ -340,6 +342,12 @@ def create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_pa
         create_hard_winter(file_name + img_extension, file_name + "_hard_winter" + img_extension, img_mask_abs_path)
 
     if O4_ESP_Globals.build_for_FS9 and should_mask_file(img_mask_abs_path):
+        # need to make black pixels in the main image (aka image_path) where the mask is black too.
+        # bug in FS2004? i dont know, but not only one with this issue:
+        # https://www.avsim.com/forums/topic/79426-help-with-fs2004-terrain-sdk-alpha-water-mask/
+        FS9_mask_main_image(file_name + img_extension, file_name + img_extension, img_mask_abs_path)
+        return
+
         if O4_Config_Utils.create_ESP_night:
             O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_night" + img_extension, img_mask_abs_path, file_name + "_night.tga")
         if O4_Config_Utils.create_ESP_spring:
@@ -374,7 +382,7 @@ def worker(queue):
             # why? to not require a ridiculously large amount of storage space...
             create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
 
-            spawn_resample_process(inf_abs_path)
+            # spawn_resample_process(inf_abs_path)
             # now remove the extra night/season bmps
             # could check if we created night, season, etc but let's be lazy and use remove_file_if_exists
             remove_file_if_exists(file_name + "_night" + img_extension)
@@ -513,6 +521,7 @@ def build_for_ESP(build_dir, tile):
 
     # cleanup fs9 imagetool files
     if O4_ESP_Globals.build_for_FS9:
+        return
         startupinfo = subprocess.STARTUPINFO()
         # possible BUG: can we ever download a tga which starts with a 0?
         tgas = "%s\\0*.tga" % (os.path.abspath(build_dir))

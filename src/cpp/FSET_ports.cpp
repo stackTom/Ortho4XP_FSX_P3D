@@ -220,6 +220,7 @@ void c_create_night(char *imgName, char *outName, char *mask_img_path) {
         cout << "Caught exception: " << error_.what() << endl;
     }
 }
+
 void c_create_hard_winter(char *imgName, char *outName, char *mask_img_path) {
     try {
         Image img;
@@ -332,6 +333,7 @@ void c_create_hard_winter(char *imgName, char *outName, char *mask_img_path) {
         cout << "Caught exception: " << error_.what() << endl;
     }
 }
+
 void c_create_autumn(char *imgName, char *outName, char *mask_img_path) {
     try {
         Image img;
@@ -391,6 +393,7 @@ void c_create_autumn(char *imgName, char *outName, char *mask_img_path) {
         cout << "Caught exception: " << error_.what() << endl;
     }
 }
+
 void c_create_spring(char *imgName, char *outName, char *mask_img_path) {
     try {
         Image img;
@@ -446,6 +449,7 @@ void c_create_spring(char *imgName, char *outName, char *mask_img_path) {
         cout << "Caught exception: " << error_.what() << endl;
     }
 }
+
 void c_create_winter(char *imgName, char *outName, char *mask_img_path) {
     try {
         Image img;
@@ -512,6 +516,28 @@ void c_create_winter(char *imgName, char *outName, char *mask_img_path) {
                 pixel[0] = vRed;
                 pixel[1] = vGreen;
                 pixel[2] = vBlue;
+            }
+        );
+        write_image(img, outName);
+    } catch(Exception &error_) {
+        cout << "Caught exception: " << error_.what() << endl;
+    }
+}
+
+void c_FS9_mask_main_image(char *imgName, char *outName, char *mask_img_path) {
+    try {
+        Image img;
+        img.read(imgName);
+        WaterPixelChecker pixelChecker(mask_img_path);
+
+        foreach_pixel(&img,
+            [&pixelChecker](Quantum *pixel, ssize_t x, ssize_t y) {
+                if (pixelChecker.pixelIsWaterOrWaterTransition(x, y)) {
+                    pixel[0] = 0;
+                    pixel[1] = 0;
+                    pixel[2] = 0;
+                }
+
             }
         );
         write_image(img, outName);
