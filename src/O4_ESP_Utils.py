@@ -165,8 +165,7 @@ def clip_to_lod_cell(coordinate, coordinate_type, lod):
     elif coordinate_type == "Longitude":
         quad_tree_id_type = "U"
 
-    quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
-    print("CLIPPING TO ", quad_tree_id_clipped)
+    quad_tree_id_clipped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
 
     return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, lod)
 
@@ -194,7 +193,7 @@ def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
 
     return (north_lat, south_lat, west_lon, east_lon)
 
-def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
+def get_clipped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, lod):
     clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
     PIXEL_OFFSET_MULTIPLIER = 0.5
 
@@ -203,10 +202,15 @@ def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, im
     west_lon = clipped_coords[2] + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
     east_lon = clipped_coords[3] - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
 
-    print("before %s, after %s" % (img_top_left_tile[0], north_lat))
-    print("before %s, after %s" % (img_bottom_right_tile[0], south_lat))
-    print("before %s, after %s" % (img_top_left_tile[1], west_lon))
-    print("before %s, after %s" % (img_bottom_right_tile[1], east_lon))
+    return (north_lat, south_lat, west_lon, east_lon)
+
+def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
+    new_coords = get_clipped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, 13)
+
+    north_lat = new_coords[0]
+    south_lat = new_coords[1]
+    west_lon = new_coords[2]
+    east_lon = new_coords[3]
 
     return_str = "NorthLat             = " + str(north_lat) + "\n"
     return_str += "SouthLat             = " + str(south_lat) + "\n"
@@ -215,20 +219,30 @@ def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, im
 
     return return_str
 
+def determine_img_nw_se_coords(tile, til_x_left, til_x_right, til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile, zoomlevel):
+    clamp = lambda value, min_val, max_val: max(min(value, max_val), min_val)
+
+    clamped_img_top_left_coords = [
+        clamp(img_top_left_tile[0], tile.lat, tile.lat + 1),
+        clamp(img_top_left_tile[1], tile.lon, tile.lon + 1)
+    ]
+    clamped_img_bottom_right_coords = [
+        clamp(img_bottom_right_tile[0], tile.lat, tile.lat + 1),
+        clamp(img_bottom_right_tile[1], tile.lon, tile.lon + 1)
+    ]
+
+    return (clamped_img_top_left_coords, clamped_img_bottom_right_coords)
+
 # TODO: all this night/season mask code is kind of terrible... need to refactor
 # TODO: do we really need the use_FS9_type? We can just use the build_for_FS9 global...
-def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
+def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
+    clamped_img_top_left, clamped_img_bottom_right = determine_img_nw_se_coords(tile, til_x_left, til_x_right,
+                                                                          til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile,
+                                                                          zoomlevel)
     (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
-
-    if O4_ESP_Globals.build_for_FS9:
-        clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
-        print("BEFORE " + str(img_top_left_tile) + " " + str(img_bottom_right_tile))
-        img_top_left_tile = (clipped_coords[0], clipped_coords[2])
-        img_bottom_right_tile = (clipped_coords[1], clipped_coords[3])
-        print("AFTER " + str(img_top_left_tile) + " " + str(img_bottom_right_tile))
 
     img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
     img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
@@ -258,7 +272,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         if use_FS9_type:
             bmp_type = "Custom"
         seasons_string, num_seasons = get_seasons_inf_string(seasons_to_create, current_source_num, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, img_mask_folder_abs_path, img_mask_abs_path,
-        str(img_top_left_tile[1]), str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg), total_num_sources, should_mask)
+        str(clamped_img_top_left[1]), str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg), total_num_sources, should_mask)
         # if seasons_string is not None, there are seasons to build in Ortho4XP.cfg
         if seasons_string:
             current_source_num += num_seasons
@@ -270,8 +284,8 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             if O4_ESP_Globals.build_for_FS9:
                 ext = ".tga"
 
-            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(img_top_left_tile[1]),
-                    str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
+            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(clamped_img_top_left[1]),
+                    str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_add_blend_mask(should_mask):
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
             current_source_num += 1
@@ -279,8 +293,8 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         # TODO: when no seasons being built, just use your new logic which sets the season to summer and sets variation to all months not used...
         if seasons_string is None:
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, str(img_top_left_tile[1]),
-                        str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
+            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, str(clamped_img_top_left[1]),
+                        str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_add_blend_mask(should_mask):
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
 
@@ -289,8 +303,8 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         if should_add_blend_mask(should_mask):
             mask_type = "Custom" if use_FS9_type else "Tiff"
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "None", img_mask_folder_abs_path, img_mask_name, str(img_top_left_tile[1]),
-                    str(img_top_left_tile[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
+            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "None", img_mask_folder_abs_path, img_mask_name, str(clamped_img_top_left[1]),
+                    str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
 
         contents += "[Destination]\n"
         contents += "DestDir             = " + os.path.abspath(file_dir) + os.sep + "ADDON_SCENERY" + os.sep + "scenery\n"
@@ -299,7 +313,7 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         contents += "UseSourceDimensions  = " + ("0" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "1") + "\n"
         contents += "CompressionQuality   = 100\n"
         if O4_ESP_Globals.build_for_FS9:
-            contents += get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
+            contents += get_FS9_destination_lat_lon_str(clamped_img_top_left, clamped_img_bottom_right, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
 
         # Default land class textures will be used if the terrain system cannot find photo-imagery at LOD13 (5 meters per pixel) or greater detail.
         # source: https://docs.microsoft.com/en-us/previous-versions/microsoft-esp/cc707102(v=msdn.10)
@@ -346,7 +360,6 @@ def create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_pa
         # bug in FS2004? i dont know, but not only one with this issue:
         # https://www.avsim.com/forums/topic/79426-help-with-fs2004-terrain-sdk-alpha-water-mask/
         FS9_mask_main_image(file_name + img_extension, file_name + img_extension, img_mask_abs_path)
-        return
 
         if O4_Config_Utils.create_ESP_night:
             O4_Imagery_Utils.add_image_as_anothers_alpha_channel(file_name + "_night" + img_extension, img_mask_abs_path, file_name + "_night.tga")
@@ -382,7 +395,7 @@ def worker(queue):
             # why? to not require a ridiculously large amount of storage space...
             create_night_and_seasonal_textures(file_name, img_extension, img_mask_abs_path)
 
-            # spawn_resample_process(inf_abs_path)
+            spawn_resample_process(inf_abs_path)
             # now remove the extra night/season bmps
             # could check if we created night, season, etc but let's be lazy and use remove_file_if_exists
             remove_file_if_exists(file_name + "_night" + img_extension)
@@ -521,7 +534,6 @@ def build_for_ESP(build_dir, tile):
 
     # cleanup fs9 imagetool files
     if O4_ESP_Globals.build_for_FS9:
-        return
         startupinfo = subprocess.STARTUPINFO()
         # possible BUG: can we ever download a tga which starts with a 0?
         tgas = "%s\\0*.tga" % (os.path.abspath(build_dir))
