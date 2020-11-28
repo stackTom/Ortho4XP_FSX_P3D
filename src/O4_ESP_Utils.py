@@ -169,19 +169,37 @@ def clip_to_lod_cell(coordinate, coordinate_type, lod):
 
     return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, lod)
 
+from decimal import *
+
 def coord_to_quadtree_id(coordinate, coord_type, lod):
+    QUANTIZE = "1.0000000000000000000000000"
+    quantized_coord = Decimal(coordinate).quantize(Decimal(QUANTIZE))
+    quantized_lod = Decimal(lod).quantize(Decimal(QUANTIZE))
+    quantized_90 = Decimal("90")
+    quantized_2 = Decimal("2")
+    quantized_120 = Decimal("120")
+    quantized_180 = Decimal("180")
+
     if coord_type == "Latitude":
-        return -((coordinate - 90) * (2 ** lod)) / 90
+        return -((quantized_coord - quantized_90) * (quantized_2 ** quantized_lod)) / quantized_90
     if coord_type == "Longitude":
-        return ((coordinate + 180) * (2 ** lod)) / 120
+        return ((quantized_coord + quantized_180) * (quantized_2 ** quantized_lod)) / quantized_120
 
     raise Exception("Unknown coordinate type")
 
 def quadtree_id_to_coord(id, id_type, lod):
+    QUANTIZE = "1.00000000000000000000000"
+    quantized_id = Decimal(id).quantize(Decimal(QUANTIZE))
+    quantized_lod = Decimal(lod).quantize(Decimal(QUANTIZE))
+    quantized_90 = Decimal("90")
+    quantized_2 = Decimal("2")
+    quantized_120 = Decimal("120")
+    quantized_180 = Decimal("180")
+
     if id_type == "V":
-        return 90 - id * (90 / 2 ** lod)
+        return quantized_90 - quantized_id * (quantized_90 / (quantized_2 ** quantized_lod))
     if id_type == "U":
-        return -180 + id * (120 / 2 ** lod)
+        return -quantized_180 + quantized_id * (quantized_120 / quantized_2 ** quantized_lod)
 
     raise Exception("Unknown id type")
 
@@ -197,10 +215,10 @@ def get_clipped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile,
     clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
     PIXEL_OFFSET_MULTIPLIER = 0.5
 
-    north_lat = clipped_coords[0] - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
-    south_lat = clipped_coords[1] + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
-    west_lon = clipped_coords[2] + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
-    east_lon = clipped_coords[3] - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    north_lat = float(clipped_coords[0]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    south_lat = float(clipped_coords[1]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    west_lon = float(clipped_coords[2]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    east_lon = float(clipped_coords[3]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
@@ -456,6 +474,7 @@ def move_mips_to_texture_folder(mips_path, texture_path, new_extension):
         name, ext = os.path.splitext(base_name)
         new_path = texture_path + name + ".bmp"
         os.rename(f, new_path)
+        print("Moved %s to %s" % (f, new_path))
 
 def build_for_ESP(build_dir, tile):
     if not build_dir:
@@ -544,7 +563,6 @@ def build_for_ESP(build_dir, tile):
         process.communicate()
 
         move_mips_to_texture_folder("%s" % (mips), "%s\\ADDON_SCENERY\\Texture\\" % (os.path.abspath(build_dir)), ".bmp")
-
         process = subprocess.Popen(["del", "%s" % (tgas)], startupinfo=startupinfo, shell=True)
         # wait until done
         process.communicate()
