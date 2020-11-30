@@ -251,6 +251,13 @@ def determine_img_nw_se_coords(tile, til_x_left, til_x_right, til_y_top, til_y_b
 
     return (clamped_img_top_left_coords, clamped_img_bottom_right_coords)
 
+def get_mask_paths(file_name):
+    img_mask_name = "_".join(file_name.split(".bmp")[0].split("_")[0:2]) + ".tif"
+    img_mask_folder_abs_path = os.path.abspath(O4_ESP_Globals.mask_dir)
+    img_mask_abs_path = os.path.abspath(os.path.join(img_mask_folder_abs_path, img_mask_name))
+
+    return img_mask_name, img_mask_folder_abs_path, img_mask_abs_path
+
 # TODO: all this night/season mask code is kind of terrible... need to refactor
 # TODO: do we really need the use_FS9_type? We can just use the build_for_FS9 global...
 def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
@@ -262,14 +269,12 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
                                                                           zoomlevel)
     (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
 
-    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
-    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
+    img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM
+    img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
+
+    img_mask_name, img_mask_folder_abs_path, img_mask_abs_path = get_mask_paths(file_name)
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
-        img_mask_name = "_".join(file_name.split(".bmp")[0].split("_")[0:2]) + ".tif"
-        img_mask_folder_abs_path = os.path.abspath(O4_ESP_Globals.mask_dir)
-        img_mask_abs_path = os.path.abspath(os.path.join(img_mask_folder_abs_path, img_mask_name))
-
         # make sure we have the mask tile created by Ortho4XP. even if do_build_masks is True, if tile not created
         # we don't tell resample to mask otherwise it will fail
         should_mask = should_mask_file(img_mask_abs_path)

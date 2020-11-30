@@ -1048,9 +1048,56 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         nbr = 16
         # TODO: stop using globals, only used them cause I wanted to get v130 to work in one night with masking, etc
         O4_ESP_Globals.ESP_build_dir = final_file_dir
+        # prepare_images_for_resample could be placed in a spot that better fits its role, and prevents images from
+        # having to be manipulated after being made. but that is alot of work and just not work it
+        # TODO: maybe fix this in future? seems like will require a ton of effort and rewrite of the guts of ortho4xp though...
+        prepare_images_for_resample(tile, final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel, O4_ESP_Globals.build_for_FS9)
         O4_ESP_Utils.make_ESP_inf_file(tile, final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel, O4_ESP_Globals.build_for_FS9)
 
     return 1
+
+def crop_img_to_coords(img_name, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
+    im = Image.open(img_name)
+    (width, height) = im.size
+    left = ceil(abs(old_coords["top_left"][1] - new_coords["top_left"][1]) / img_cell_x_dimension_deg)
+    top = ceil(abs(old_coords["top_left"][0] - new_coords["top_left"][0]) / img_cell_y_dimension_deg)
+    right = width - ceil(abs(old_coords["bottom_right"][1] - new_coords["bottom_right"][1]) / img_cell_x_dimension_deg)
+    bottom = height - ceil(abs(old_coords["bottom_right"][0] - new_coords["bottom_right"][0]) / img_cell_y_dimension_deg)
+
+    # don't do anything if nothing to crop
+    if left == 0 and top == 0 and right == width and bottom == height:
+        im.close()
+        return
+
+    imc = im.crop((left, top, right, bottom))
+    im.close()
+    imc.save(img_name)
+    imc.close()
+
+def prepare_images_for_resample(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
+    img_top_left_tile = GEO.gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
+    img_bottom_right_tile = GEO.gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
+    clamped_img_top_left, clamped_img_bottom_right = O4_ESP_Utils.determine_img_nw_se_coords(tile, til_x_left, til_x_right,
+                                                                          til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile,
+                                                                          zoomlevel)
+
+    (IMG_X_DIM, IMG_Y_DIM) = get_image_dimensions(file_dir + os.sep + file_name)
+    # don't calculate these dimension_deg's based on the clamped img coords, but on the coords of the full img downloaded
+    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
+    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
+    old_coords = { "top_left": img_top_left_tile, "bottom_right": img_bottom_right_tile }
+    new_coords = { "top_left": clamped_img_top_left, "bottom_right": clamped_img_bottom_right }
+
+    if IMG_X_DIM == 4096 and IMG_Y_DIM == 4096:
+        crop_img_to_coords(file_dir + os.sep + file_name, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
+
+    _, _, img_mask_abs_path = O4_ESP_Utils.get_mask_paths(file_name)
+    if O4_ESP_Utils.should_mask_file(img_mask_abs_path):
+        (mask_img_x_pixels, mask_img_y_pixels) = get_image_dimensions(img_mask_abs_path)
+        print(mask_img_x_pixels, mask_img_y_pixels)
+        if mask_img_x_pixels == 4096 and mask_img_y_pixels == 4096:
+            crop_img_to_coords(img_mask_abs_path, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
+
 ###############################################################################################################################
 
 ###############################################################################################################################
