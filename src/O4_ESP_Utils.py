@@ -454,7 +454,7 @@ def run_scenproc_threaded(queue):
 
 def can_build_for_ESP():
     if O4_ESP_Globals.build_for_FSX_P3D:
-        if O4_Config_Utils.FSX_P3D_resample_loc is '':
+        if O4_Config_Utils.FSX_P3D_resample_loc == '':
             print("No FSX/P3D resample.exe is specified in Ortho4XP.cfg, quitting")
             return False
         if not os.path.isfile(O4_Config_Utils.FSX_P3D_resample_loc):
@@ -462,7 +462,7 @@ def can_build_for_ESP():
             return False
 
     if O4_ESP_Globals.build_for_FS9:
-        if O4_Config_Utils.FS9_resample_loc is '':
+        if O4_Config_Utils.FS9_resample_loc == '':
             print("No FS9 resample.exe is specified in Ortho4XP.cfg, quitting")
             return False
         if not os.path.isfile(O4_Config_Utils.FS9_resample_loc):
@@ -478,7 +478,13 @@ def move_mips_to_texture_folder(mips_path, texture_path, new_extension):
         base_name = os.path.basename(f)
         name, ext = os.path.splitext(base_name)
         new_path = texture_path + name + ".bmp"
-        os.rename(f, new_path)
+
+        try:
+            os.rename(f, new_path)
+        except Exception:
+            os.remove(new_path)
+            os.rename(f, new_path)
+
         print("Moved %s to %s" % (f, new_path))
 
 def build_for_ESP(build_dir, tile):

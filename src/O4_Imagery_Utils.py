@@ -1094,7 +1094,6 @@ def prepare_images_for_resample(tile, file_dir, file_name, til_x_left, til_x_rig
     _, _, img_mask_abs_path = O4_ESP_Utils.get_mask_paths(file_name)
     if O4_ESP_Utils.should_mask_file(img_mask_abs_path):
         (mask_img_x_pixels, mask_img_y_pixels) = get_image_dimensions(img_mask_abs_path)
-        print(mask_img_x_pixels, mask_img_y_pixels)
         if mask_img_x_pixels == 4096 and mask_img_y_pixels == 4096:
             crop_img_to_coords(img_mask_abs_path, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
 
