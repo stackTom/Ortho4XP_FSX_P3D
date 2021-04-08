@@ -169,37 +169,19 @@ def clip_to_lod_cell(coordinate, coordinate_type, lod):
 
     return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
 
-from decimal import *
-
 def coord_to_quadtree_id(coordinate, coord_type, lod):
-    QUANTIZE = "1.0000000000000000000000000"
-    quantized_coord = Decimal(coordinate).quantize(Decimal(QUANTIZE))
-    quantized_lod = Decimal(lod).quantize(Decimal(QUANTIZE))
-    quantized_90 = Decimal("90")
-    quantized_2 = Decimal("2")
-    quantized_120 = Decimal("120")
-    quantized_180 = Decimal("180")
-
     if coord_type == "Latitude":
-        return -((quantized_coord - quantized_90) * (quantized_2 ** quantized_lod)) / quantized_90
+        return -((coordinate - 90.0) * (2.0 ** lod)) / 90.0
     if coord_type == "Longitude":
-        return ((quantized_coord + quantized_180) * (quantized_2 ** quantized_lod)) / quantized_120
+        return ((coordinate + 180.0) * (2.0 ** lod)) / 120.0
 
     raise Exception("Unknown coordinate type")
 
 def quadtree_id_to_coord(id, id_type, lod):
-    QUANTIZE = "1.00000000000000000000000"
-    quantized_id = Decimal(id).quantize(Decimal(QUANTIZE))
-    quantized_lod = Decimal(lod).quantize(Decimal(QUANTIZE))
-    quantized_90 = Decimal("90")
-    quantized_2 = Decimal("2")
-    quantized_120 = Decimal("120")
-    quantized_180 = Decimal("180")
-
     if id_type == "V":
-        return quantized_90 - quantized_id * (quantized_90 / (quantized_2 ** quantized_lod))
+        return 90.0 - id * (90.0 / (2.0 ** lod))
     if id_type == "U":
-        return -quantized_180 + quantized_id * (quantized_120 / quantized_2 ** quantized_lod)
+        return -180.0 + id * (120.0 / 2.0 ** lod)
 
     raise Exception("Unknown id type")
 
@@ -215,10 +197,10 @@ def get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile,
     snapped_coords = get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
     PIXEL_OFFSET_MULTIPLIER = 0.5
 
-    north_lat = float(snapped_coords[0]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
-    south_lat = float(snapped_coords[1]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
-    west_lon = float(snapped_coords[2]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
-    east_lon = float(snapped_coords[3]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    north_lat = snapped_coords[0] - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    south_lat = snapped_coords[1] + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    west_lon = snapped_coords[2] + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    east_lon = snapped_coords[3] - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
@@ -284,8 +266,8 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         clamped_img_top_left = img_top_left_tile
         clamped_img_bottom_right = img_bottom_right_tile
 
-        img_cell_x_dimension_deg = float((clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM)
-        img_cell_y_dimension_deg = float((clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM)
+        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM
+        img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
         # make sure we have the mask tile created by Ortho4XP. even if do_build_masks is True, if tile not created
@@ -486,6 +468,7 @@ def can_build_for_ESP():
 
 # wrote own function because couldn't get windows copy to work with wildcard even with shell=True
 def move_mips_to_texture_folder(mips_path, texture_path, new_extension):
+    print("Moving mips files to texture folder. Please wait...")
     files = glob.glob(mips_path)
     for f in files:
         base_name = os.path.basename(f)
