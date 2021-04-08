@@ -165,7 +165,7 @@ def clip_to_lod_cell(coordinate, coordinate_type, lod):
     elif coordinate_type == "Longitude":
         quad_tree_id_type = "U"
 
-    quad_tree_id_snapped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
+    quad_tree_id_snapped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
 
     return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
 
