@@ -165,9 +165,9 @@ def clip_to_lod_cell(coordinate, coordinate_type, lod):
     elif coordinate_type == "Longitude":
         quad_tree_id_type = "U"
 
-    quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
+    quad_tree_id_snapped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
 
-    return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, lod)
+    return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
 
 from decimal import *
 
@@ -203,7 +203,7 @@ def quadtree_id_to_coord(id, id_type, lod):
 
     raise Exception("Unknown id type")
 
-def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
+def get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
     north_lat = clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
     south_lat = clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
     west_lon = clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
@@ -211,19 +211,19 @@ def get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
 
     return (north_lat, south_lat, west_lon, east_lon)
 
-def get_clipped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, lod):
-    clipped_coords = get_clipped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
+def get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, lod):
+    snapped_coords = get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
     PIXEL_OFFSET_MULTIPLIER = 0.5
 
-    north_lat = float(clipped_coords[0]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
-    south_lat = float(clipped_coords[1]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
-    west_lon = float(clipped_coords[2]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
-    east_lon = float(clipped_coords[3]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    north_lat = float(snapped_coords[0]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    south_lat = float(snapped_coords[1]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
+    west_lon = float(snapped_coords[2]) + (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
+    east_lon = float(snapped_coords[3]) - (PIXEL_OFFSET_MULTIPLIER * img_cell_x_dimension_deg)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
 def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
-    new_coords = get_clipped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, 13)
+    new_coords = get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, 13)
 
     north_lat = new_coords[0]
     south_lat = new_coords[1]
@@ -274,7 +274,7 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
 
     img_mask_name, img_mask_folder_abs_path, img_mask_abs_path = get_mask_paths(file_name)
     if O4_ESP_Globals.build_for_FS9:
-        new_coords = get_clipped_FS9_coords(clamped_img_top_left, clamped_img_bottom_right, 13)
+        new_coords = get_snapped_FS9_coords(clamped_img_top_left, clamped_img_bottom_right, 13)
         north_lat = new_coords[0]
         south_lat = new_coords[1]
         west_lon = new_coords[2]
