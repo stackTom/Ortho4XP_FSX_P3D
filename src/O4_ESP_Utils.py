@@ -165,7 +165,7 @@ def clip_to_lod_cell(coordinate, coordinate_type, lod):
     elif coordinate_type == "Longitude":
         quad_tree_id_type = "U"
 
-    quad_tree_id_clipped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
+    quad_tree_id_clipped = math.ceil(coord_to_quadtree_id(coordinate, coordinate_type, lod))
 
     return quadtree_id_to_coord(quad_tree_id_clipped, quad_tree_id_type, lod)
 
@@ -273,6 +273,19 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
     img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
 
     img_mask_name, img_mask_folder_abs_path, img_mask_abs_path = get_mask_paths(file_name)
+    if O4_ESP_Globals.build_for_FS9:
+        new_coords = get_clipped_FS9_coords(clamped_img_top_left, clamped_img_bottom_right, 13)
+        north_lat = new_coords[0]
+        south_lat = new_coords[1]
+        west_lon = new_coords[2]
+        east_lon = new_coords[3]
+        img_top_left_tile = (north_lat, west_lon)
+        img_bottom_right_tile = (south_lat, east_lon)
+        clamped_img_top_left = img_top_left_tile
+        clamped_img_bottom_right = img_bottom_right_tile
+
+        img_cell_x_dimension_deg = float((clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM)
+        img_cell_y_dimension_deg = float((clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM)
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
         # make sure we have the mask tile created by Ortho4XP. even if do_build_masks is True, if tile not created
@@ -484,8 +497,6 @@ def move_mips_to_texture_folder(mips_path, texture_path, new_extension):
         except Exception:
             os.remove(new_path)
             os.rename(f, new_path)
-
-        print("Moved %s to %s" % (f, new_path))
 
 def build_for_ESP(build_dir, tile):
     if not build_dir:
