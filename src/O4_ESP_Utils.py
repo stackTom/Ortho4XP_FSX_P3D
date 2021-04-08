@@ -570,8 +570,6 @@ def build_for_ESP(build_dir, tile):
         q2.put_nowait(None)
 
     for t in threads: t.join() # wait for completion
-    if scenproc_thread is not None:
-        scenproc_thread.join()
 
     # cleanup fs9 imagetool files
     if O4_ESP_Globals.build_for_FS9:
@@ -588,3 +586,7 @@ def build_for_ESP(build_dir, tile):
         process = subprocess.Popen(["del", "%s" % (tgas)], startupinfo=startupinfo, shell=True)
         # wait until done
         process.communicate()
+
+    # now ensure scenproc threads complete
+    if scenproc_thread is not None:
+        scenproc_thread.join()
