@@ -588,5 +588,5 @@ def build_for_ESP(build_dir, tile):
         process.communicate()
 
     # now ensure scenproc threads complete
-    if scenproc_thread is not None:
+    if q2 is not None:
         scenproc_thread.join()
