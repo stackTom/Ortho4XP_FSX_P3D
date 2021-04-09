@@ -44,7 +44,7 @@ def should_add_blend_mask(should_mask):
     return should_mask and O4_ESP_Globals.build_for_FSX_P3D
 
 def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
-    total = 0;
+    total = 0
     if seasons_to_create:
         created_summer = False
         for season, should_build in seasons_to_create.items():
@@ -261,12 +261,20 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         south_lat = new_coords[1]
         west_lon = new_coords[2]
         east_lon = new_coords[3]
-        img_top_left_tile = (north_lat, west_lon)
-        img_bottom_right_tile = (south_lat, east_lon)
+        img_top_left_tile = [north_lat, west_lon]
+        img_bottom_right_tile = [south_lat, east_lon]
         clamped_img_top_left = img_top_left_tile
         clamped_img_bottom_right = img_bottom_right_tile
 
-        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM
+        # NOTE: these two following lines are a complete hack. I have only a vague idea of why they work.
+        # I've no clue why for x you only change the img_cell_x_dimension_deg. changing the actual
+        # clamped_img_bottom_right causes random black squares to appear (although it does fix the right land border).
+        # Conversely, for the y dimension, you need to change the actual clamped_img_top_left - changing just
+        # img_cell_y_dimension_deg causes black boxes to appear and the problem (north side water border) not to be fixed.
+        FIX_SMALL_BORDER = 0.005
+        clamped_img_top_left[0] += FIX_SMALL_BORDER
+
+        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1] + FIX_SMALL_BORDER) / IMG_X_DIM
         img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
