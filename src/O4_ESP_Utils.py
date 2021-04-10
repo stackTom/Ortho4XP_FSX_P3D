@@ -242,6 +242,10 @@ def get_mask_paths(file_name):
 
 # TODO: all this night/season mask code is kind of terrible... need to refactor
 # TODO: do we really need the use_FS9_type? We can just use the build_for_FS9 global...
+# TODO: the fs9 coordinate system code is full of hacks. why? we aren't snapping to LOD 13
+# and only downloading tiles that are snapped to LOD 13, as I imagine FSET works. so, we are snapping non-LOD 13 tiles to LOD 13
+# causes generated ortho to be very slightly off from true coordinates. a nice medium between not having
+# water border vs accuracy was achieved (without having to download only LOD 13 tiles which would require serious work)
 def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
@@ -266,15 +270,18 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         clamped_img_top_left = img_top_left_tile
         clamped_img_bottom_right = img_bottom_right_tile
 
-        # NOTE: these two following lines are a complete hack. I have only a vague idea of why they work.
+        # NOTE: these lines surrounded by ---- are a complete hack. I have only a vague idea of why they work.
         # I've no clue why for x you only change the img_cell_x_dimension_deg. changing the actual
         # clamped_img_bottom_right causes random black squares to appear (although it does fix the right land border).
         # Conversely, for the y dimension, you need to change the actual clamped_img_top_left - changing just
         # img_cell_y_dimension_deg causes black boxes to appear and the problem (north side water border) not to be fixed.
-        FIX_SMALL_BORDER = 0.005
-        clamped_img_top_left[0] += FIX_SMALL_BORDER
+        # -----------------------------------------------------------------------------------------
+        FIX_EAST_BORDER = 0.001
+        FIX_NORTH_BORDER = 0.001
+        clamped_img_top_left[0] += FIX_NORTH_BORDER
+        # -----------------------------------------------------------------------------------------
 
-        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1] + FIX_SMALL_BORDER) / IMG_X_DIM
+        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1] + FIX_EAST_BORDER) / IMG_X_DIM
         img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
