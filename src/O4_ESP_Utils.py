@@ -275,9 +275,11 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         # clamped_img_bottom_right causes random black squares to appear (although it does fix the right land border).
         # Conversely, for the y dimension, you need to change the actual clamped_img_top_left - changing just
         # img_cell_y_dimension_deg causes black boxes to appear and the problem (north side water border) not to be fixed.
+        # fs9 resample.exe has bugs plain and simple
         # -----------------------------------------------------------------------------------------
-        FIX_EAST_BORDER = 0.001
-        FIX_NORTH_BORDER = 0.001
+        # I think these two need to be equal else get black squares in certain tiles
+        FIX_EAST_BORDER = 0.000875
+        FIX_NORTH_BORDER = 0.000875
         clamped_img_top_left[0] += FIX_NORTH_BORDER
         # -----------------------------------------------------------------------------------------
 
