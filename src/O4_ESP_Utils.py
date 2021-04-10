@@ -101,41 +101,40 @@ def add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, so
 
     return (remaining_seasons_inf_str, num_seasons_added)
 
-# getting None from this function is a good way of seeing if there are no seasons to build...
+def get_variation(build_for_fs9, season):
+    variation_map = {
+        "Spring": ("March,April,May", "_spring"),
+        "Fall": ("September,October", "_fall"),
+        "Winter": ("November", "_winter"),
+        "HardWinter": ("December,January,February", "_hard_winter")
+    }
+    if build_for_fs9:
+        variation_map = {
+            "Spring": ("Summer", "_spring"),
+            "Fall": ("Summer", "_fall"),
+            "Winter": ("Summer", "_winter"),
+            "HardWinter": ("Summer", "_hard_winter")
+        }
+
+    return variation_map[season]
+
 def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
     string = ""
     source_file_name, ext = os.path.splitext(source_file)
     months_used_dict = { "January": False, "February": False, "March": False, "April": False, "May": False, "June": False, "July": False, "August": False, "September": False, "October": False, "November": False, "December": False }
 
-    if seasons_to_create["Spring"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Spring", "March,April,May", type, layer, source_dir, source_file_name + "_spring" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_add_blend_mask(should_mask):
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["March"] = True
-        months_used_dict["April"] = True
-        months_used_dict["May"] = True
-    if seasons_to_create["Fall"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Fall", "September,October", type, layer, source_dir, source_file_name + "_fall" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_add_blend_mask(should_mask):
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["September"] = True
-        months_used_dict["October"] = True
-    if seasons_to_create["Winter"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Winter", "November", type, layer, source_dir, source_file_name + "_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_add_blend_mask(should_mask):
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["November"] = True
-    if seasons_to_create["HardWinter"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "HardWinter", "December,January,February", type, layer, source_dir, source_file_name + "_hard_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_add_blend_mask(should_mask):
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["December"] = True
-        months_used_dict["January"] = True
-        months_used_dict["February"] = True
+    for season, create_season in seasons_to_create.items():
+        # summer is handled in a special manner
+        if season != "Summer" and create_season:
+            (variation, img_suffix) = get_variation(O4_ESP_Globals.build_for_FS9, season)
+            string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, variation, type, layer, source_dir, source_file_name + img_suffix + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
+            if should_add_blend_mask(should_mask):
+                string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
+            source_num += 1
+            months_used = variation.split(",")
+            for month in months_used:
+                months_used_dict[month] = True
+
     # create summer with variation which includes all those months that haven't been included yet. do this if either summer is specified in Ortho4XP.cfg OR
     # if at least one other season has been specified (ie string != "") in order that all months are specified if not all seasons are specified...
     if seasons_to_create["Summer"] or string != "":
