@@ -16,13 +16,15 @@ import O4_Imagery_Utils
 
 def create_INF_source_string(source_num, season, variation, type, layer, source_dir, source_file, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim):
     contents = "[Source" + source_num + "]\n"
-    if season:
+    if season is not None:
         contents += "Season          = " + season + "\n"
-    if variation:
+    if variation is not None:
         contents += "Variation          = " + variation + "\n"
 
     contents += "Type          = " + type + "\n"
-    contents += "Layer          = " + layer + "\n"
+    if layer is not None:
+        contents += "Layer          = " + layer + "\n"
+
     contents += "SourceDir  = " + source_dir + "\n"
     contents += "SourceFile = " + source_file + "\n"
     contents += "Lon               = " + lon + "\n"
@@ -93,9 +95,8 @@ def add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, so
     source_file_name, ext = os.path.splitext(source_file)
     num_seasons_added = 0
     for season, should_build in seasons_to_create.items():
-        if not should_build:
-            # just build it with January for month variation, doesn't matter
-            remaining_seasons_inf_str += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, "January", type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
+        if not should_build and season != "Summer":
+            remaining_seasons_inf_str += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, None, type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
             source_num += 1
             num_seasons_added += 1
 
@@ -110,10 +111,10 @@ def get_variation(build_for_fs9, season):
     }
     if build_for_fs9:
         variation_map = {
-            "Spring": ("Summer", "_spring"),
-            "Fall": ("Summer", "_fall"),
-            "Winter": ("Summer", "_winter"),
-            "HardWinter": ("Summer", "_hard_winter")
+            "Spring": (None, "_spring"),
+            "Fall": (None, "_fall"),
+            "Winter": (None, "_winter"),
+            "HardWinter": (None, "_hard_winter")
         }
 
     return variation_map[season]
@@ -131,9 +132,10 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
             if should_add_blend_mask(should_mask):
                 string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
             source_num += 1
-            months_used = variation.split(",")
-            for month in months_used:
-                months_used_dict[month] = True
+            if variation is not None:
+                months_used = variation.split(",")
+                for month in months_used:
+                    months_used_dict[month] = True
 
     # create summer with variation which includes all those months that haven't been included yet. do this if either summer is specified in Ortho4XP.cfg OR
     # if at least one other season has been specified (ie string != "") in order that all months are specified if not all seasons are specified...
@@ -143,7 +145,7 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
             if not has_been_used:
                 months_str += month + ","
 
-        months_str = months_str[:-1]
+        months_str = months_str[:-1] if not O4_ESP_Globals.build_for_FS9 else None
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Summer", months_str, type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
         if should_add_blend_mask(should_mask):
             string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
@@ -297,6 +299,8 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
             "HardWinter": O4_Config_Utils.create_ESP_hard_winter
         }
         contents = ""
+        layer = "Imagery" if not O4_ESP_Globals.build_for_FS9 else None
+
         total_num_sources = get_total_num_sources(seasons_to_create, O4_Config_Utils.create_ESP_night, should_mask)
         if total_num_sources > 1:
             contents = "[Source]\nType = MultiSource\nNumberOfSources = " + str(total_num_sources) + "\n\n"
@@ -305,7 +309,7 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         bmp_type = "BMP"
         if use_FS9_type:
             bmp_type = "Custom"
-        seasons_string, num_seasons = get_seasons_inf_string(seasons_to_create, current_source_num, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, img_mask_folder_abs_path, img_mask_abs_path,
+        seasons_string, num_seasons = get_seasons_inf_string(seasons_to_create, current_source_num, bmp_type, layer, os.path.abspath(file_dir), file_name, img_mask_folder_abs_path, img_mask_abs_path,
         str(clamped_img_top_left[1]), str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg), total_num_sources, should_mask)
         # if seasons_string is not None, there are seasons to build in Ortho4XP.cfg
         if seasons_string:
@@ -318,7 +322,8 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
             if O4_ESP_Globals.build_for_FS9:
                 ext = ".tga"
 
-            contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", bmp_type, "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(clamped_img_top_left[1]),
+            variation = "LightMap" if not O4_ESP_Globals.build_for_FS9 else None
+            contents += create_INF_source_string(source_num_str, "LightMap", variation, bmp_type, layer, os.path.abspath(file_dir), file_name_no_extension + "_night" + ext, str(clamped_img_top_left[1]),
                     str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_add_blend_mask(should_mask):
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
@@ -327,7 +332,7 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         # TODO: when no seasons being built, just use your new logic which sets the season to summer and sets variation to all months not used...
         if seasons_string is None:
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
-            contents += create_INF_source_string(source_num_str, None, None, bmp_type, "Imagery", os.path.abspath(file_dir), file_name, str(clamped_img_top_left[1]),
+            contents += create_INF_source_string(source_num_str, None, None, bmp_type, layer, os.path.abspath(file_dir), file_name, str(clamped_img_top_left[1]),
                         str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_add_blend_mask(should_mask):
                 contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
