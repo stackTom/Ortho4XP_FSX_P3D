@@ -7,7 +7,7 @@ Work in progress at adding FSX/P3D (ESP support)
 
 # Prerequisites
 
-Please install ImageMagick before attempting to run, otherwise the night/season creation won't work. An installer has been provided inside the dist/ directory. Run the installer with the default settings.
+Please install ImageMagick before attempting to run, otherwise the night/season creation won't work. An installer has been provided inside the Binary/ directory. Run the installer with the default settings.
 The same installer can also be found here: https://www.imagemagick.org/download/binaries/ImageMagick-7.0.8-10-Q8-x64-dll.exe
 
 NOTE: Need to provide the location of your resample.exe from the P3D or FSX SDK in Ortho4XP.cfg, like this:
@@ -20,7 +20,7 @@ You can obtain the P3D resample.exe by installing the P3D SDK provided by Lockhe
 For FSX, resample.exe can be found by installing the FSX SDK found in the FSX Deluxe Disc 1 or in FSX Acceleration Pack (or FSX Gold which includes the Acceleration pack). The Steam edition of FSX does have an SDK but doesn't include the resample.exe executable, so you will have to install the regular SDK from any of these other sources (the FSX SDK has its own installer and can be installed separately without having to install the full game). 
 
 # Running from exe
-An executable (.exe) file has been provided in the dist/ directory, if you don't want to build the binary yourself. Simply double click on it, and it'll run. It cannot run without the parent folders though.
+An executable (.exe) file has been provided in the Binary/ directory, if you don't want to build the binary yourself. Simply double click on it, and it'll run. It cannot run without the parent folders though.
 
 # Running with Python
 To install, follow the install guide for Ortho4XP, making sure to install all python libraries, and run Ortho4XP_v130.py from the command line.
@@ -50,9 +50,9 @@ Use pyinstaller like this:
 
 `pyinstaller --clean -F -p src Ortho4XP_v130.py`
 
-Then, copy spatialindex-64.dll and spatialindex_c.dll (from rtree python module) into the dist folder where the new executable is:
+Then, copy spatialindex-64.dll and spatialindex_c.dll (from rtree python module) into the Binary folder where the new executable is:
 
-`cp /cygdrive/c/Users/fery2/AppData/Local/Programs/Python/Python36/lib/site-packages/rtree/spatialindex*.dll dist/`
+`cp /cygdrive/c/Users/fery2/AppData/Local/Programs/Python/Python36/lib/site-packages/rtree/spatialindex*.dll Binary/`
 
 To build the imagemagick based c++ dll, use the Visual Studio Native Tools Command Prompt, and do something like:
 
