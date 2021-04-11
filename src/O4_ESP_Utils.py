@@ -340,7 +340,7 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
             current_source_num += 1
 
         if should_add_blend_mask(should_mask):
-            mask_type = "Custom" if use_FS9_type else "Tiff"
+            bmp_type = "Custom" if use_FS9_type else "TIFF"
             source_num_str = source_num_to_source_num_string(current_source_num, total_num_sources)
             contents += create_INF_source_string(source_num_str, None, None, bmp_type, "None", img_mask_folder_abs_path, img_mask_name, str(clamped_img_top_left[1]),
                     str(clamped_img_top_left[0]), str(IMG_X_DIM), str(IMG_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
