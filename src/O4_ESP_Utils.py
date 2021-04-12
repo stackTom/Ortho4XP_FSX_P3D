@@ -10,6 +10,7 @@ from queue import Queue
 from threading import Thread
 import math
 import O4_Imagery_Utils
+import O4_Geo_Utils as GEO
 
 # TODO: use os.path.join instead of os.sep and concatenation
 # TODO: use format strings instead of concatenation
@@ -80,6 +81,7 @@ def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
     if total == 0:
         total = 1
 
+    return 1
     return total
 
 def source_num_to_source_num_string(source_num, total_sources):
@@ -153,44 +155,17 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     if O4_ESP_Globals.build_for_FS9:
         (remaining_seasons, seasons_added) = add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask)
-        string += remaining_seasons
-        source_num += seasons_added
+        #string += remaining_seasons
+        #source_num += seasons_added
 
     return (string if string != "" else None, source_num - 1)
 
-def clip_to_lod_cell(coordinate, coordinate_type, lod):
-    quad_tree_id_type = None
-
-    if coordinate_type == "Latitude":
-        quad_tree_id_type = "V"
-    elif coordinate_type == "Longitude":
-        quad_tree_id_type = "U"
-
-    quad_tree_id_snapped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
-
-    return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
-
-def coord_to_quadtree_id(coordinate, coord_type, lod):
-    if coord_type == "Latitude":
-        return -((coordinate - 90.0) * (2.0 ** lod)) / 90.0
-    if coord_type == "Longitude":
-        return ((coordinate + 180.0) * (2.0 ** lod)) / 120.0
-
-    raise Exception("Unknown coordinate type")
-
-def quadtree_id_to_coord(id, id_type, lod):
-    if id_type == "V":
-        return 90.0 - id * (90.0 / (2.0 ** lod))
-    if id_type == "U":
-        return -180.0 + id * (120.0 / 2.0 ** lod)
-
-    raise Exception("Unknown id type")
 
 def get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
-    north_lat = clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
-    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
-    west_lon = clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
-    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
+    north_lat = GEO.clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
+    south_lat = GEO.clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
+    west_lon = GEO.clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
+    east_lon = GEO.clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
@@ -206,12 +181,12 @@ def get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile,
     return (north_lat, south_lat, west_lon, east_lon)
 
 def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
-    new_coords = get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, 13)
+    #new_coords = get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, 13)
 
-    north_lat = new_coords[0]
-    south_lat = new_coords[1]
-    west_lon = new_coords[2]
-    east_lon = new_coords[3]
+    north_lat = img_top_left_tile[0]
+    south_lat = img_bottom_right_tile[0]
+    west_lon = img_top_left_tile[1]
+    east_lon = img_bottom_right_tile[1]
 
     return_str = "NorthLat             = " + str(north_lat) + "\n"
     return_str += "SouthLat             = " + str(south_lat) + "\n"
@@ -223,16 +198,50 @@ def get_FS9_destination_lat_lon_str(img_top_left_tile, img_bottom_right_tile, im
 def determine_img_nw_se_coords(tile, til_x_left, til_x_right, til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile, zoomlevel):
     clamp = lambda value, min_val, max_val: max(min(value, max_val), min_val)
 
+    min_north_lat = tile.lat + 1
+    min_west_lon = tile.lon
+    min_south_lat = tile.lat
+    min_east_lon = tile.lon + 1
+    if O4_ESP_Globals.build_for_FS9:
+        print("before", min_north_lat, min_west_lon, min_south_lat, min_east_lon)
+        print("min north lat id", math.ceil(GEO.coord_to_quadtree_id(min_north_lat, "Latitude", 13)))
+        print("min south lat id", math.floor(GEO.coord_to_quadtree_id(min_south_lat, "Latitude", 13)))
+        print("min north lat cord", GEO.quadtree_id_to_coord(6372, "V", 13))
+        print("min south lat cord", GEO.quadtree_id_to_coord(6462, "V", 13))
+        # first make sure the current img is within the tile, and only choose the part of it in the tile
+        clamped_img_top_left_coords = [
+            clamp(img_top_left_tile[0], tile.lat, tile.lat + 1),
+            clamp(img_top_left_tile[1], tile.lon, tile.lon + 1)
+        ]
+        clamped_img_bottom_right_coords = [
+            clamp(img_bottom_right_tile[0], tile.lat, tile.lat + 1),
+            clamp(img_bottom_right_tile[1], tile.lon, tile.lon + 1)
+        ]
+        min_north_lat = clamped_img_top_left_coords[0]
+        min_west_lon = clamped_img_top_left_coords[1]
+        min_south_lat = clamped_img_bottom_right_coords[0]
+        min_east_lon = clamped_img_bottom_right_coords[1]
+        # then we choose the part of the image within the lod 13 grid within the tile
+        # for below, remember in u,v fs9 coordinates, south is bigger than north, east bigger than west
+        # ortho4xp tiles start at SW corner... hence + 1 lat and + 1 lon to get the full extent of the tile
+        min_north_lat = GEO.quadtree_id_to_coord(math.ceil(GEO.coord_to_quadtree_id(min_north_lat, "Latitude", 13)), "V", 13)
+        min_west_lon = GEO.quadtree_id_to_coord(math.ceil(GEO.coord_to_quadtree_id(min_west_lon, "Longitude", 13)), "U", 13)
+        min_south_lat = GEO.quadtree_id_to_coord(math.floor(GEO.coord_to_quadtree_id(min_south_lat, "Latitude", 13)), "V", 13)
+        min_east_lon = GEO.quadtree_id_to_coord(math.floor(GEO.coord_to_quadtree_id(min_east_lon, "Longitude", 13)), "U", 13)
+        print("after", min_north_lat, min_west_lon, min_south_lat, min_east_lon)
+
     clamped_img_top_left_coords = [
-        clamp(img_top_left_tile[0], tile.lat, tile.lat + 1),
-        clamp(img_top_left_tile[1], tile.lon, tile.lon + 1)
+        clamp(img_top_left_tile[0], min_north_lat, tile.lat + 1),
+        clamp(img_top_left_tile[1], min_west_lon, tile.lon + 1)
     ]
     clamped_img_bottom_right_coords = [
-        clamp(img_bottom_right_tile[0], tile.lat, tile.lat + 1),
-        clamp(img_bottom_right_tile[1], tile.lon, tile.lon + 1)
+        clamp(img_bottom_right_tile[0], min_south_lat, tile.lat + 1),
+        clamp(img_bottom_right_tile[1], min_east_lon, tile.lon + 1)
     ]
+    print("before full", img_top_left_tile, img_bottom_right_tile)
+    print("after full", clamped_img_top_left_coords, clamped_img_bottom_right_coords)
 
-    return (clamped_img_top_left_coords, clamped_img_bottom_right_coords)
+    return [clamped_img_top_left_coords, clamped_img_bottom_right_coords]
 
 def get_mask_paths(file_name):
     img_mask_name = "_".join(file_name.split(".bmp")[0].split("_")[0:2]) + ".tif"
@@ -248,6 +257,7 @@ def get_mask_paths(file_name):
 # causes generated ortho to be very slightly off from true coordinates. a nice medium between not having
 # water border vs accuracy was achieved (without having to download only LOD 13 tiles which would require serious work)
 def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
+    print(tile.lat, tile.lon)
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
@@ -255,37 +265,16 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
                                                                           til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile,
                                                                           zoomlevel)
     (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
+    IMG_X_DIM = 4096
+    IMG_Y_DIM = 4096
+    if O4_ESP_Globals.build_for_FS9:
+        clamped_img_top_left[0] += (1 * GEO.FS9_LOD13_LAT_SPAN * 16 / 255)
+        clamped_img_top_left[1] += (1 * GEO.FS9_LOD13_LON_SPAN * 16 / 255)
 
-    img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM
-    img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
+    img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1]) * (4112 / 4096) / IMG_X_DIM
+    img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) * (4112 / 4096)/ IMG_Y_DIM
 
     img_mask_name, img_mask_folder_abs_path, img_mask_abs_path = get_mask_paths(file_name)
-    if O4_ESP_Globals.build_for_FS9:
-        new_coords = get_snapped_FS9_coords(clamped_img_top_left, clamped_img_bottom_right, 13)
-        north_lat = new_coords[0]
-        south_lat = new_coords[1]
-        west_lon = new_coords[2]
-        east_lon = new_coords[3]
-        img_top_left_tile = [north_lat, west_lon]
-        img_bottom_right_tile = [south_lat, east_lon]
-        clamped_img_top_left = img_top_left_tile
-        clamped_img_bottom_right = img_bottom_right_tile
-
-        # NOTE: these lines surrounded by ---- are a complete hack. I have only a vague idea of why they work.
-        # I've no clue why for x you only change the img_cell_x_dimension_deg. changing the actual
-        # clamped_img_bottom_right causes random black squares to appear (although it does fix the right land border).
-        # Conversely, for the y dimension, you need to change the actual clamped_img_top_left - changing just
-        # img_cell_y_dimension_deg causes black boxes to appear and the problem (north side water border) not to be fixed.
-        # fs9 resample.exe has bugs plain and simple
-        # -----------------------------------------------------------------------------------------
-        # I think these two need to be equal else get black squares in certain tiles
-        FIX_EAST_BORDER = 0.000875
-        FIX_NORTH_BORDER = 0.000875
-        clamped_img_top_left[0] += FIX_NORTH_BORDER
-        # -----------------------------------------------------------------------------------------
-
-        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1] + FIX_EAST_BORDER) / IMG_X_DIM
-        img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
 
     with open(file_dir + os.sep + file_name_no_extension + ".inf", "w") as inf_file:
         # make sure we have the mask tile created by Ortho4XP. even if do_build_masks is True, if tile not created
@@ -348,7 +337,7 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         contents += "[Destination]\n"
         contents += "DestDir             = " + os.path.abspath(file_dir) + os.sep + "ADDON_SCENERY" + os.sep + "scenery\n"
         contents += "DestBaseFileName     = " + file_name_no_extension + "\n"
-        contents += "BuildSeasons        = " + ("1" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "0") + "\n"
+        contents += "BuildSeasons        = " + ("1" if False and (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "0") + "\n"
         contents += "UseSourceDimensions  = " + ("0" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "1") + "\n"
         contents += "CompressionQuality   = 100\n"
         if O4_ESP_Globals.build_for_FS9:

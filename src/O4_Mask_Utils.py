@@ -85,6 +85,11 @@ def build_masks(tile,for_imagery=False):
     ####################
     [til_x_min,til_y_min]=GEO.wgs84_to_orthogrid(tile.lat+1,tile.lon,tile.mask_zl)
     [til_x_max,til_y_max]=GEO.wgs84_to_orthogrid(tile.lat,tile.lon+1,tile.mask_zl)
+    print(til_x_min, til_x_max, til_y_min, til_y_max)
+    [til_x_min,til_y_min]=GEO.wgs84_to_gtile(tile.lat+1,tile.lon,tile.mask_zl)
+    [til_x_max,til_y_max]=GEO.wgs84_to_gtile(tile.lat,tile.lon+1,tile.mask_zl)
+    print(til_x_min, til_x_max, til_y_min, til_y_max)
+    #os._exit(0)
     if not (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9):
         UI.vprint(1,"-> Deleting existing masks")
         for til_x in range(til_x_min,til_x_max+1,16):
@@ -243,7 +248,7 @@ def build_masks(tile,for_imagery=False):
         px0-=1024
         py0-=1024
         # 1) We start with a black mask 
-        mask_im=Image.new("L",(4096+2*1024,4096+2*1024),'black')
+        mask_im=Image.new("L",(4112+2*1024,4112+2*1024),'black')
         mask_draw=ImageDraw.Draw(mask_im)
         # 2) We fill it with white over the extent of each tile around for which we had a mesh available
         for mesh_file_name in mesh_file_name_list:
@@ -294,11 +299,11 @@ def build_masks(tile,for_imagery=False):
                 del(demim4326)
                 img_array=numpy.maximum(img_array,dem_array)
         
-        custom_mask_array=numpy.zeros((4096,4096),dtype=numpy.uint8)
+        custom_mask_array=numpy.zeros((4112,4112),dtype=numpy.uint8)
         if tile.masks_custom_extent:
             (latm1,lonm1)=GEO.gtile_to_wgs84(til_x+16,til_y+16,tile.mask_zl)
             bbox_4326=(lonm0,latm0,lonm1,latm1)
-            masks_im=IMG.has_data(bbox_4326,tile.masks_custom_extent,True,mask_size=(4096,4096),is_sharp_resize=False,is_mask_layer=False)
+            masks_im=IMG.has_data(bbox_4326,tile.masks_custom_extent,True,mask_size=(4112,4112),is_sharp_resize=False,is_mask_layer=False)
             if masks_im:
                 custom_mask_array=(numpy.array(masks_im,dtype=numpy.uint8)*(sea_level/255)).astype(numpy.uint8)
         
@@ -399,7 +404,7 @@ def build_masks(tile,for_imagery=False):
         
         # Ensure land is kept to 255 on the mask to avoid unecessary ones, crop to final size, and take the
         # max with the possible custom extent mask
-        img_array=numpy.maximum((img_array>0).astype(numpy.uint8)*255,b_img_array)[1024:4096+1024,1024:4096+1024]
+        img_array=numpy.maximum((img_array>0).astype(numpy.uint8)*255,b_img_array)[1024:4112+1024,1024:4112+1024]
         img_array=numpy.maximum(img_array,custom_mask_array)
 
         if not (img_array.max()==0 or img_array.min()==255):

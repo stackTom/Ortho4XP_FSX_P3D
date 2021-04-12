@@ -98,9 +98,9 @@ class QuadTree(dict):
 def zone_list_to_ortho_dico(tile):
         # tile.zone_list is a list of 3-uples of the form ([(lat0,lat0),...(latN,lonN),zoomlevel,provider_code)
         # where higher lines have priority over lower ones.
-        masks_im=Image.new("L",(4096,4096),'black')
+        masks_im=Image.new("L",(4112,4112),'black')
         masks_draw=ImageDraw.Draw(masks_im)
-        airport_array=numpy.zeros((4096,4096),dtype=numpy.bool)
+        airport_array=numpy.zeros((4112,4112),dtype=numpy.bool)
         if tile.cover_airports_with_highres in ['True','ICAO']:
             UI.vprint(1,"-> Checking airport locations for upgraded zoomlevel.")
             try:
@@ -185,10 +185,10 @@ def create_terrain_file(tile,texture_file_name,til_x_left,til_y_top,zoomlevel,pr
     with open(os.path.join(tile.build_dir,'terrain',ter_file_name),'w') as f:
         f.write('A\n800\nTERRAIN\n\n')
         [lat_med,lon_med]=GEO.gtile_to_wgs84(til_x_left+8,til_y_top+8,zoomlevel)
-        texture_approx_size=int(GEO.webmercator_pixel_size(lat_med,zoomlevel)*4096)
+        texture_approx_size=int(GEO.webmercator_pixel_size(lat_med,zoomlevel)*4112)
         f.write('LOAD_CENTER '+'{:.5f}'.format(lat_med)+' '\
                +'{:.5f}'.format(lon_med)+' '\
-               +str(texture_approx_size)+' 4096\n')
+               +str(texture_approx_size)+' 4112\n')
         f.write('BASE_TEX_NOWRAP ../textures/'+texture_file_name+'\n')
         if tri_type in (1,2) and not is_overlay: # experimental water
             f.write('TEXTURE_NORMAL '+str(2**(17-zoomlevel))+' ../textures/water_normal_map.dds\n')
@@ -202,7 +202,7 @@ def create_terrain_file(tile,texture_file_name,til_x_left,til_y_top,zoomlevel,pr
                 shutil.copy(os.path.join(FNAMES.Utils_dir,'water_transition.png'),os.path.join(tile.build_dir,'textures'))
         elif tri_type==2 and not tile.imprint_masks_to_dds: #border_tex mask
             f.write('LOAD_CENTER_BORDER '+'{:.5f}'.format(lat_med)+' '\
-               +'{:.5f}'.format(lon_med)+' '+str(texture_approx_size)+' '+str(4096//2**(zoomlevel-tile.mask_zl))+'\n')
+               +'{:.5f}'.format(lon_med)+' '+str(texture_approx_size)+' '+str(4112//2**(zoomlevel-tile.mask_zl))+'\n')
             f.write('BORDER_TEX ../textures/'+FNAMES.mask_file(til_x_left,til_y_top,zoomlevel,provider_code)+'\n')
         elif tri_type==2 and tile.imprint_masks_to_dds and (tile.experimental_water & 2): #dxt5 with normal map
             f.write('TEXTURE_NORMAL '+str(2**(17-zoomlevel))+' ../textures/water_normal_map.dds\n')

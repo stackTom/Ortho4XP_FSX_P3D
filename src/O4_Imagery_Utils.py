@@ -936,7 +936,8 @@ def download_photo_ortho(file_dir,file_name,til_x_left,til_y_top,zoomlevel,provi
         max_zl=int(provider['max_zl'])
         if zoomlevel>max_zl:
             super_resol_factor=2**(max_zl-zoomlevel)
-    width=height=int(4096*super_resol_factor)
+    super_resol_factor = 1
+    width=height=int(4112*super_resol_factor)
     # we treat first the case of webmercator grid type servers
     if 'grid_type' in provider and provider['grid_type']=='webmercator':
         tilbox=[til_x_left,til_y_top,til_x_left+16,til_y_top+16] 
@@ -958,6 +959,7 @@ def download_photo_ortho(file_dir,file_name,til_x_left,til_y_top,zoomlevel,provi
         os.makedirs(file_dir)
     try:
         if super_resol_factor==1:
+            big_image = big_image.resize((4112, 4112))
             big_image.save(os.path.join(file_dir,file_name))
         else:
             big_image.resize((int(width/super_resol_factor),int(height/super_resol_factor)),Image.BICUBIC).save(os.path.join(file_dir,file_name))
@@ -1063,6 +1065,7 @@ def crop_img_to_coords(img_name, old_coords, new_coords, img_cell_x_dimension_de
     top = ceil(abs(old_coords["top_left"][0] - new_coords["top_left"][0]) / img_cell_y_dimension_deg)
     right = width - ceil(abs(old_coords["bottom_right"][1] - new_coords["bottom_right"][1]) / img_cell_x_dimension_deg)
     bottom = height - ceil(abs(old_coords["bottom_right"][0] - new_coords["bottom_right"][0]) / img_cell_y_dimension_deg)
+    print(left, top, right, bottom)
 
     # don't do anything if nothing to crop
     if left == 0 and top == 0 and right == width and bottom == height:
@@ -1070,9 +1073,14 @@ def crop_img_to_coords(img_name, old_coords, new_coords, img_cell_x_dimension_de
         return
 
     imc = im.crop((left, top, right, bottom))
+    im_rem = im.crop((right, bottom, width, height))
     im.close()
     imc.save(img_name)
+    name, ext = os.path.splitext(img_name)
+    print("imgname", img_name, "name", name, "ext", ext, (right, bottom, width, height))
+    im_rem.save("%s_rem.%s" % (name, ext))
     imc.close()
+    im_rem.close()
 
 def prepare_images_for_resample(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
     img_top_left_tile = GEO.gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
@@ -1088,13 +1096,13 @@ def prepare_images_for_resample(tile, file_dir, file_name, til_x_left, til_x_rig
     old_coords = { "top_left": img_top_left_tile, "bottom_right": img_bottom_right_tile }
     new_coords = { "top_left": clamped_img_top_left, "bottom_right": clamped_img_bottom_right }
 
-    if IMG_X_DIM == 4096 and IMG_Y_DIM == 4096:
+    if IMG_X_DIM == 4112 and IMG_Y_DIM == 4112:
         crop_img_to_coords(file_dir + os.sep + file_name, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
 
     _, _, img_mask_abs_path = O4_ESP_Utils.get_mask_paths(file_name)
     if O4_ESP_Utils.should_mask_file(img_mask_abs_path):
         (mask_img_x_pixels, mask_img_y_pixels) = get_image_dimensions(img_mask_abs_path)
-        if mask_img_x_pixels == 4096 and mask_img_y_pixels == 4096:
+        if mask_img_x_pixels == 4112 and mask_img_y_pixels == 4112:
             crop_img_to_coords(img_mask_abs_path, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
 
 ###############################################################################################################################
@@ -1108,10 +1116,10 @@ def build_combined_ortho(tile, latp,lonp,zoomlevel,provider_code,mask_zl,filenam
     initialize_providers_dict()
     initialize_combined_providers_dict()
     (til_x_left,til_y_top)=GEO.wgs84_to_orthogrid(latp,lonp,zoomlevel)
-    big_image=Image.new('RGBA',(4096,4096))
+    big_image=Image.new('RGBA',(4112,4112))
     (y0,x0)=GEO.gtile_to_wgs84(til_x_left,til_y_top,zoomlevel)
     (y1,x1)=GEO.gtile_to_wgs84(til_x_left+16,til_y_top+16,zoomlevel)
-    mask_weight_below=numpy.zeros((4096,4096),dtype=numpy.uint16)
+    mask_weight_below=numpy.zeros((4112,4112),dtype=numpy.uint16)
     for rlayer in combined_providers_dict[provider_code][::-1]:
         mask=has_data((x0,y0,x1,y1),rlayer['extent_code'],return_mask=True,is_mask_layer=(tile.lat,tile.lon, tile.mask_zl) if rlayer['priority']=='mask' else False)
         if not mask: continue
@@ -1146,7 +1154,7 @@ def build_combined_ortho(tile, latp,lonp,zoomlevel,provider_code,mask_zl,filenam
             UI.vprint(2,"Blur of a mask !")
             true_im=true_im.filter(ImageFilter.GaussianBlur(tile.sea_texture_blur*2**(true_zl-17)))
         if crop: 
-            true_im=true_im.crop((pixx0,pixy0,pixx1,pixy1)).resize((4096,4096),Image.BICUBIC)
+            true_im=true_im.crop((pixx0,pixy0,pixx1,pixy1)).resize((4112,4112),Image.BICUBIC)
         # in case the smoothing of the extent mask was too strong we remove the
         # the mask (where it is nor 0 nor 255) the pixels for which the true_im
         # is all white
@@ -1204,7 +1212,7 @@ def build_texture_region(dest_dir,latmin,latmax,lonmin,lonmax,zoomlevel,provider
             (y0,x0)=GEO.gtile_to_wgs84(til_x_left,til_y_top,zoomlevel)
             (y1,x1)=GEO.gtile_to_wgs84(til_x_left+16,til_y_top+16,zoomlevel)
             bbox_4326=(x0,y0,x1,y1)
-            if has_data(bbox_4326,providers_dict[provider_code]['extent'],return_mask=False,mask_size=(4096,4096)):
+            if has_data(bbox_4326,providers_dict[provider_code]['extent'],return_mask=False,mask_size=(4112,4112)):
                 file_name=FNAMES.jpeg_file_name_from_attributes(til_x_left,til_y_top,zoomlevel,provider_code)
                 if os.path.isfile(os.path.join(dest_dir,file_name)):
                     print("recycling one")
@@ -1329,10 +1337,10 @@ def color_transform(im,color_code):
 
 ###############################################################################################################################
 def combine_textures(tile,til_x_left,til_y_top,zoomlevel,provider_code):
-    big_image=Image.new('RGBA',(4096,4096))
+    big_image=Image.new('RGBA',(4112,4112))
     (y0,x0)=GEO.gtile_to_wgs84(til_x_left,til_y_top,zoomlevel)
     (y1,x1)=GEO.gtile_to_wgs84(til_x_left+16,til_y_top+16,zoomlevel)
-    mask_weight_below=numpy.zeros((4096,4096),dtype=numpy.uint16)
+    mask_weight_below=numpy.zeros((4112,4112),dtype=numpy.uint16)
     if len(local_combined_providers_dict[provider_code])==1: # we do not need to bother with masks then 
         rlayer=local_combined_providers_dict[provider_code][0]
         true_til_x_left=til_x_left
@@ -1359,7 +1367,7 @@ def combine_textures(tile,til_x_left,til_y_top,zoomlevel,provider_code):
             UI.vprint(2,"Blur of a mask !")
             true_im=true_im.filter(ImageFilter.GaussianBlur(tile.sea_texture_blur*2**(true_zl-17)))
         if crop: 
-            true_im=true_im.crop((pixx0,pixy0,pixx1,pixy1)).resize((4096,4096),Image.BICUBIC)
+            true_im=true_im.crop((pixx0,pixy0,pixx1,pixy1)).resize((4112,4112),Image.BICUBIC)
         UI.vprint(2,"Finished imprinting",til_x_left,til_y_top)
         return true_im
     # the real situation now where there are more than one layer with data
@@ -1392,7 +1400,7 @@ def combine_textures(tile,til_x_left,til_y_top,zoomlevel,provider_code):
             UI.vprint(2,"Blur of a mask !")
             true_im=true_im.filter(ImageFilter.GaussianBlur(tile.sea_texture_blur*2**(true_zl-17)))
         if crop: 
-            true_im=true_im.crop((pixx0,pixy0,pixx1,pixy1)).resize((4096,4096),Image.BICUBIC)
+            true_im=true_im.crop((pixx0,pixy0,pixx1,pixy1)).resize((4112,4112),Image.BICUBIC)
         # in case the smoothing of the extent mask was too strong we remove the
         # the mask (where it is nor 0 nor 255) the pixels for which the true_im
         # is all white or all black
@@ -1450,9 +1458,9 @@ def convert_texture(tile,til_x_left,til_y_top,zoomlevel,provider_code,type='dds'
             mask_file=os.path.join(FNAMES.mask_dir(tile.lat,tile.lon),FNAMES.legacy_mask(m_til_x,m_til_y))
             if os.path.isfile(mask_file): 
                 big_img=Image.open(mask_file)
-                x0=int(rx*4096/factor)
-                y0=int(ry*4096/factor)
-                mask_im=big_img.crop((x0,y0,x0+4096//factor,y0+4096//factor))
+                x0=int(rx*4112/factor)
+                y0=int(ry*4112/factor)
+                mask_im=big_img.crop((x0,y0,x0+4112//factor,y0+4112//factor))
                 small_array=numpy.array(mask_im,dtype=numpy.uint8)
                 if small_array.max()>30: 
                     masked_texture=True
@@ -1463,7 +1471,7 @@ def convert_texture(tile,til_x_left,til_y_top,zoomlevel,provider_code,type='dds'
         big_image=combine_textures(tile,til_x_left,til_y_top,zoomlevel,provider_code)
         if masked_texture:
             UI.vprint(2,"      Applying alpha mask directly to orthophoto.")
-            big_image.putalpha(mask_im.resize((4096,4096),Image.BICUBIC))
+            big_image.putalpha(mask_im.resize((4112,4112),Image.BICUBIC))
             if type=='dds':
                 try: os.remove(os.path.join(tile.build_dir,"textures",FNAMES.mask_file(til_x_left,til_y_top,zoomlevel,provider_code))) 
                 except: pass
@@ -1480,7 +1488,7 @@ def convert_texture(tile,til_x_left,til_y_top,zoomlevel,provider_code,type='dds'
             big_image=color_transform(big_image,providers_dict[provider_code]['color_filters'])
         if masked_texture:
             UI.vprint(2,"      Applying alpha mask directly to orthophoto.")
-            big_image.putalpha(mask_im.resize((4096,4096),Image.BICUBIC))
+            big_image.putalpha(mask_im.resize((4112,4112),Image.BICUBIC))
             if type=='dds':
                 try: os.remove(os.path.join(tile.build_dir,"textures",FNAMES.mask_file(til_x_left,til_y_top,zoomlevel,provider_code))) 
                 except: pass
