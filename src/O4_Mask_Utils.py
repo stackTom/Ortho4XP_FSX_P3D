@@ -73,18 +73,32 @@ def build_masks(tile,for_imagery=False):
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     mesh_file_name_list=[]
-    for close_lat in range(tile.lat-1,tile.lat+2):
-        for close_lon in range(tile.lon-1,tile.lon+2):
-            close_build_dir = tile.build_dir if tile.grouped else tile.build_dir.replace(FNAMES.tile_dir(tile.lat,tile.lon),FNAMES.tile_dir(close_lat,close_lon))
-            close_mesh_file_name=FNAMES.mesh_file(close_build_dir,close_lat,close_lon)
-            if os.path.isfile(close_mesh_file_name):
-                mesh_file_name_list.append(close_mesh_file_name)
+    if True or not O4_ESP_Globals.build_for_FS9:
+        for close_lat in range(tile.lat-1,tile.lat+2):
+            for close_lon in range(tile.lon-1,tile.lon+2):
+                close_build_dir = tile.build_dir if tile.grouped else tile.build_dir.replace(FNAMES.tile_dir(tile.lat,tile.lon),FNAMES.tile_dir(close_lat,close_lon))
+                close_mesh_file_name=FNAMES.mesh_file(close_build_dir,close_lat,close_lon)
+                if os.path.isfile(close_mesh_file_name):
+                    mesh_file_name_list.append(close_mesh_file_name)
+    else:
+        for close_lat in range(tile.lat-GEO.FS9_LOD_13_LAT_SPAN,tile.lat+(2 * GEO.FS9_LOD_13_LAT_SPAN)):
+            for close_lon in range(tile.lon-GEO.FS9_LOD_13_LON_SPAN,tile.lon+(2 * GEO.FS9_LOD_13_LON_SPAN)):
+                close_build_dir = tile.build_dir if tile.grouped else tile.build_dir.replace(FNAMES.tile_dir(tile.lat,tile.lon),FNAMES.tile_dir(close_lat,close_lon))
+                close_mesh_file_name=FNAMES.mesh_file(close_build_dir,close_lat,close_lon)
+                if os.path.isfile(close_mesh_file_name):
+                    mesh_file_name_list.append(close_mesh_file_name)
     ####################
     dico_masks={}
     dico_masks_inland={}
     ####################
     [til_x_min,til_y_min]=GEO.wgs84_to_orthogrid(tile.lat+1,tile.lon,tile.mask_zl)
     [til_x_max,til_y_max]=GEO.wgs84_to_orthogrid(tile.lat,tile.lon+1,tile.mask_zl)
+    if O4_ESP_Globals.build_for_FS9:
+        [til_x_min,til_y_min]=GEO.wgs84_to_orthogrid(tile.lat+GEO.FS9_LOD_13_LAT_SPAN,tile.lon,tile.mask_zl)
+        [til_x_max,til_y_max]=GEO.wgs84_to_orthogrid(tile.lat,tile.lon+GEO.FS9_LOD_13_LON_SPAN,tile.mask_zl)
+
+    print(til_x_min, til_y_min, til_x_max, til_y_max)
+    #os._exit(0)
     if not (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9):
         UI.vprint(1,"-> Deleting existing masks")
         for til_x in range(til_x_min,til_x_max+1,16):
@@ -320,6 +334,9 @@ def build_masks(tile,for_imagery=False):
 
         # Blur of the mask
         pxscal=GEO.webmercator_pixel_size(tile.lat+0.5,tile.mask_zl)
+        if O4_ESP_Globals.build_for_FS9:
+            pxscal=GEO.webmercator_pixel_size(tile.lat+(0.5 * GEO.FS9_LOD_13_LAT_SPAN),tile.mask_zl)
+
         if tile.masking_mode=="sand":
             blur_width=int(tile.masks_width/pxscal)
         elif tile.masking_mode=="rocks":

@@ -13,6 +13,7 @@ import O4_Geo_Utils as GEO
 import O4_Vector_Utils as VECT
 import O4_OSM_Utils as OSM
 import O4_Version
+import O4_ESP_Globals
 
 if 'dar' in sys.platform:
     Triangle4XP_cmd = os.path.join(FNAMES.Utils_dir,"Triangle4XP.app ")
@@ -138,6 +139,12 @@ def build_curv_tol_weight_map(tile,weight_array):
             colmax=min(round((lonp-tile.lon+x_shift)*1000),1000)
             rowmax=min(round((tile.lat+1-latp+y_shift)*1000),1000)
             rowmin=max(round((tile.lat+1-latp-y_shift)*1000),0)
+            if O4_ESP_Globals.build_for_fs9:
+                colmin=max(round((lonp-tile.lon-(x_shift * GEO.FS9_LOD_13_LON_SPAN))*1000),0)
+                colmax=min(round((lonp-tile.lon+(x_shift * GEO.FS9_LOD_13_LON_SPAN))*1000),1000)
+                rowmax=min(round((tile.lat+GEO.FS9_LOD_13_LAT_SPAN-latp+(y_shift * GEO.FS9_LOD_13_LAT_SPAN))*1000),1000)
+                rowmin=max(round((tile.lat+GEO.FS9_LOD_13_LAT_SPAN-latp-(y_shift * GEO.FS9_LOD_13_LAT_SPAN))*1000),0)
+
             weight_array[rowmin:rowmax+1,colmin:colmax+1]=numpy.maximum(weight_array[rowmin:rowmax+1,colmin:colmax+1],tile.curvature_tol/tile.coast_curv_tol) 
         del(sea_layer)
     # It could be of interest to write the weight file as a png for user editing    
@@ -352,6 +359,9 @@ def build_mesh(tile):
     UI.is_working=1
     UI.red_flag=False  
     VECT.scalx=cos((tile.lat+0.5)*pi/180)  
+    if O4_ESP_Globals.build_for_fs9:
+        VECT.scalx=cos((tile.lat+(0.5 * GEO.FS9_LOD_13_LAT_SPAN))*pi/180)
+
     UI.logprint("Step 2 for tile lat=",tile.lat,", lon=",tile.lon,": starting.")
     UI.vprint(0,"\nStep 2 : Building mesh for tile "+FNAMES.short_latlon(tile.lat,tile.lon)+" : \n--------\n")
     UI.progress_bar(1,0)

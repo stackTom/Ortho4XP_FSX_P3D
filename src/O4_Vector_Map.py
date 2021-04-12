@@ -25,6 +25,9 @@ def build_poly_file(tile):
     tile.iterate=0
     # update the lat/lon scaling factor in VECT
     VECT.scalx=cos((tile.lat+0.5)*pi/180)
+    if O4_ESP_Globals.build_for_FS9:
+        VECT.scalx=cos((tile.lat+(0.5 * GEO.FS9_LOD_13_LAT_SPAN))*pi/180)
+
     # Let's go !
     UI.logprint("Step 1 for tile lat=",tile.lat,", lon=",tile.lon,": starting.")
     UI.vprint(0,"\nStep 1 : Building vector data for tile "+FNAMES.short_latlon(tile.lat,tile.lon)+" : \n--------\n")
@@ -77,6 +80,10 @@ def build_poly_file(tile):
     ygrid=set()  # y coordinates of horizontal grid lines
     (til_xul,til_yul) = GEO.wgs84_to_orthogrid(tile.lat+1,tile.lon,tile.mesh_zl)
     (til_xlr,til_ylr) = GEO.wgs84_to_orthogrid(tile.lat,tile.lon+1,tile.mesh_zl)
+    if O4_ESP_Globals.build_for_FS9:
+        (til_xul,til_yul) = GEO.wgs84_to_orthogrid(tile.lat+GEO.FS9_LOD_13_LAT_SPAN,tile.lon,tile.mesh_zl)
+        (til_xlr,til_ylr) = GEO.wgs84_to_orthogrid(tile.lat,tile.lon+GEO.FS9_LOD_13_LON_SPAN,tile.mesh_zl)
+
     for til_x in range(til_xul+16,til_xlr+1,16):
         pos_x=(til_x/(2**(tile.mesh_zl-1))-1)
         xgrid.add(pos_x*180-tile.lon)
@@ -303,9 +310,15 @@ def include_sea(vector_map,tile):
 ##############################################################################
 def include_water(vector_map,tile):
     large_lake_threshold=tile.max_area*1e6/(GEO.lat_to_m*GEO.lon_to_m(tile.lat+0.5))
+    if O4_ESP_Globals.build_for_FS9:
+        large_lake_threshold=tile.max_area*1e6/(GEO.lat_to_m*GEO.lon_to_m(tile.lat+(0.5 * GEO.FS9_LOD_13_LAT_SPAN)))
+
     def filter_large_lakes(pol,osmid,dicosmtags):
         if pol.area<large_lake_threshold: return False
         area=int(pol.area*GEO.lat_to_m*GEO.lon_to_m(tile.lat+0.5)/1e6)
+        if O4_ESP_Globals.build_for_FS9:
+            area=int(pol.area*GEO.lat_to_m*GEO.lon_to_m(tile.lat+(0.5 * GEO.FS9_LOD_13_LAT_SPAN))/1e6)
+
         if (osmid in dicosmtags) and ('name' in dicosmtags[osmid]):
             if (dicosmtags[osmid]['name'] in good_imagery_list):
                 UI.vprint(1,"      * ",dicosmtags[osmid]['name'],"kept will complete imagery although it is",area,"km^2.")

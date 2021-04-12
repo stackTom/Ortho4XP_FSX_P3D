@@ -12,6 +12,7 @@ import O4_File_Names as FNAMES
 import O4_Geo_Utils as GEO
 import O4_Mask_Utils as MASK
 import O4_UI_Utils as UI
+import O4_ESP_Globals
 
 quad_init_level=3
 quad_capacity_high=50000
@@ -139,11 +140,21 @@ def zone_list_to_ortho_dico(tile):
         dico_tmp={}
         til_x_min,til_y_min=GEO.wgs84_to_orthogrid(tile.lat+1,tile.lon,tile.mesh_zl)
         til_x_max,til_y_max=GEO.wgs84_to_orthogrid(tile.lat,tile.lon+1,tile.mesh_zl) 
+        if O4_ESP_Globals.build_for_FS9:
+            til_x_min,til_y_min=GEO.wgs84_to_orthogrid(tile.lat+GEO.FS9_LOD_13_LAT_SPAN,tile.lon,tile.mesh_zl)
+            til_x_max,til_y_max=GEO.wgs84_to_orthogrid(tile.lat,tile.lon+GEO.FS9_LOD_13_LON_SPAN,tile.mesh_zl)
+
+        print(til_x_min, til_y_min, til_x_max, til_y_max)
+        #os._exit(0)
         i=1
         base_zone=((tile.lat,tile.lon,tile.lat,tile.lon+1,tile.lat+1,tile.lon+1,tile.lat+1,tile.lon,tile.lat,tile.lon),tile.default_zl,tile.default_website)
+        if O4_ESP_Globals.build_for_FS9:
+            base_zone=((tile.lat,tile.lon,tile.lat,tile.lon+1,tile.lat+GEO.FS9_LOD_13_LAT_SPAN,tile.lon+GEO.FS9_LOD_13_LON_SPAN,tile.lat+GEO.FS9_LOD_13_LAT_SPAN,tile.lon,tile.lat,tile.lon),tile.default_zl,tile.default_website)
         for region in [base_zone]+tile.zone_list[::-1]:
             dico_tmp[i]=(region[1],region[2])
             pol=[(round((x-tile.lon)*4095),round((tile.lat+1-y)*4095)) for (x,y) in zip(region[0][1::2],region[0][::2])]
+            if O4_ESP_Globals.build_for_FS9:
+                pol=[(round((x-tile.lon)*4095),round((tile.lat+GEO.FS9_LOD_13_LAT_SPAN-(y * GEO.FS9_LOD_13_LAT_SPAN))*4095)) for (x,y) in zip(region[0][1::2],region[0][::2])]
             masks_draw.polygon(pol,fill=i)
             i+=1
         for til_x in range(til_x_min,til_x_max+1,16):
@@ -153,6 +164,13 @@ def zone_list_to_ortho_dico(tile):
                 latp=max(min(latp,tile.lat+1),tile.lat) 
                 x=round((lonp-tile.lon)*4095)
                 y=round((tile.lat+1-latp)*4095)
+                if O4_ESP_Globals.build_for_FS9:
+                    lonp=max(min(lonp,tile.lon+GEO.FS9_LOD_13_LON_SPAN),tile.lon)
+                    latp=max(min(latp,tile.lat+GEO.FS9_LOD_13_LAT_SPAN),tile.lat)
+                    x=round(((lonp)-tile.lon)*4095)
+                    y=round((tile.lat+GEO.FS9_LOD_13_LAT_SPAN-(latp))*4095)
+
+                print(((x,y)))
                 (zoomlevel,provider_code)=dico_tmp[masks_im.getpixel((x,y))]
                 if airport_array[y,x]: 
                     zoomlevel=max(zoomlevel,tile.cover_zl)
@@ -286,6 +304,9 @@ def build_dsf(tile,download_queue):
         scal_x=scal_y=2**(-level)    
         node_icoords[[5*idx_node+2 for idx_node in plist]]=numpy.round((altitudes-altmin)*inv_stp)
         pool_param[key_to_idx_pool[key]]=(scal_x,tile.lon+int(key[0],2)*scal_x,scal_y,tile.lat+int(key[1],2)*scal_y,scale_z,altmin,2,-1,2,-1,1,0,1,0,1,0,1,0)
+        if O4_ESP_Globals.build_for_FS9:
+            pool_param[key_to_idx_pool[key]]=(scal_x,tile.lon+(int(key[0],2)*scal_x * GEO.FS9_LOD_13_LON_SPAN),scal_y,tile.lat+(int(key[1],2)*scal_y * GEO.FS9_LOD_13_LAT_SPAN),scale_z,altmin,2,-1,2,-1,1,0,1,0,1,0,1,0)
+
     node_icoords[3::5]=numpy.round((1+tile.normal_map_strength*node_coords[3::5])/2*65535)
     node_icoords[4::5]=numpy.round((1-tile.normal_map_strength*node_coords[4::5])/2*65535)
     node_icoords=array.array('H',node_icoords)
@@ -623,6 +644,11 @@ def build_dsf(tile,download_queue):
         bPROP=bytes("sim/west\0"+str(tile.lon)+"\0"+"sim/east\0"+str(tile.lon+1)+"\0"+\
                "sim/south\0"+str(tile.lat)+"\0"+"sim/north\0"+str(tile.lat+1)+"\0"+\
                "sim/creation_agent\0"+"Ortho4XP\0",'ascii')
+        if O4_ESP_Globals.build_for_FS9:
+            bPROP=bytes("sim/west\0"+str(tile.lon)+"\0"+"sim/east\0"+str(tile.lon+GEO.FS9_LOD_13_LON_SPAN)+"\0"+\
+               "sim/south\0"+str(tile.lat)+"\0"+"sim/north\0"+str(tile.lat+GEO.FS9_LOD_13_LAT_SPAN)+"\0"+\
+               "sim/creation_agent\0"+"Ortho4XP\0",'ascii')
+
     else:
         bPROP+=b'sim/creation_agent\0Patched by Ortho4XP\0'
       

@@ -10,6 +10,7 @@ from queue import Queue
 from threading import Thread
 import math
 import O4_Imagery_Utils
+import O4_Geo_Utils as GEO
 
 # TODO: use os.path.join instead of os.sep and concatenation
 # TODO: use format strings instead of concatenation
@@ -80,6 +81,7 @@ def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
     if total == 0:
         total = 1
 
+    return 1
     return total
 
 def source_num_to_source_num_string(source_num, total_sources):
@@ -153,49 +155,21 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     if O4_ESP_Globals.build_for_FS9:
         (remaining_seasons, seasons_added) = add_remaining_seasons_for_fs9(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask)
-        string += remaining_seasons
-        source_num += seasons_added
+        #string += remaining_seasons
+        #source_num += seasons_added
 
     return (string if string != "" else None, source_num - 1)
 
-def clip_to_lod_cell(coordinate, coordinate_type, lod):
-    quad_tree_id_type = None
-
-    if coordinate_type == "Latitude":
-        quad_tree_id_type = "V"
-    elif coordinate_type == "Longitude":
-        quad_tree_id_type = "U"
-
-    quad_tree_id_snapped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
-
-    return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
-
-def coord_to_quadtree_id(coordinate, coord_type, lod):
-    if coord_type == "Latitude":
-        return -((coordinate - 90.0) * (2.0 ** lod)) / 90.0
-    if coord_type == "Longitude":
-        return ((coordinate + 180.0) * (2.0 ** lod)) / 120.0
-
-    raise Exception("Unknown coordinate type")
-
-def quadtree_id_to_coord(id, id_type, lod):
-    if id_type == "V":
-        return 90.0 - id * (90.0 / (2.0 ** lod))
-    if id_type == "U":
-        return -180.0 + id * (120.0 / 2.0 ** lod)
-
-    raise Exception("Unknown id type")
-
 def get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
-    north_lat = clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
-    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
-    west_lon = clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
-    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
+    north_lat = GEO.clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
+    south_lat = GEO.clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
+    west_lon = GEO.clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
+    east_lon = GEO.clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
 def get_snapped_FS9_coords_with_offset(img_top_left_tile, img_bottom_right_tile, img_cell_x_dimension_deg, img_cell_y_dimension_deg, lod):
-    snapped_coords = get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, 13)
+    snapped_coords = get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod)
     PIXEL_OFFSET_MULTIPLIER = 0.5
 
     north_lat = snapped_coords[0] - (PIXEL_OFFSET_MULTIPLIER * img_cell_y_dimension_deg)
@@ -251,16 +225,14 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
     file_name_no_extension, extension = os.path.splitext(file_name)
     img_top_left_tile = gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
-    clamped_img_top_left, clamped_img_bottom_right = determine_img_nw_se_coords(tile, til_x_left, til_x_right,
-                                                                          til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile,
-                                                                          zoomlevel)
+    clamped_img_top_left, clamped_img_bottom_right = img_top_left_tile, img_bottom_right_tile
     (IMG_X_DIM, IMG_Y_DIM) = O4_Imagery_Utils.get_image_dimensions(file_dir + os.sep + file_name)
 
     img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1]) / IMG_X_DIM
     img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
 
     img_mask_name, img_mask_folder_abs_path, img_mask_abs_path = get_mask_paths(file_name)
-    if O4_ESP_Globals.build_for_FS9:
+    if False and O4_ESP_Globals.build_for_FS9:
         new_coords = get_snapped_FS9_coords(clamped_img_top_left, clamped_img_bottom_right, 13)
         north_lat = new_coords[0]
         south_lat = new_coords[1]
@@ -279,8 +251,8 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         # fs9 resample.exe has bugs plain and simple
         # -----------------------------------------------------------------------------------------
         # I think these two need to be equal else get black squares in certain tiles
-        FIX_EAST_BORDER = 0.000875
-        FIX_NORTH_BORDER = 0.000875
+        FIX_EAST_BORDER = 0.0
+        FIX_NORTH_BORDER = 0.0
         clamped_img_top_left[0] += FIX_NORTH_BORDER
         # -----------------------------------------------------------------------------------------
 
@@ -348,7 +320,7 @@ def make_ESP_inf_file(tile, file_dir, file_name, til_x_left, til_x_right, til_y_
         contents += "[Destination]\n"
         contents += "DestDir             = " + os.path.abspath(file_dir) + os.sep + "ADDON_SCENERY" + os.sep + "scenery\n"
         contents += "DestBaseFileName     = " + file_name_no_extension + "\n"
-        contents += "BuildSeasons        = " + ("1" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "0") + "\n"
+        contents += "BuildSeasons        = " + ("1" if False and (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "0") + "\n"
         contents += "UseSourceDimensions  = " + ("0" if (O4_ESP_Globals.build_for_FS9 and seasons_string is not None) else "1") + "\n"
         contents += "CompressionQuality   = 100\n"
         if O4_ESP_Globals.build_for_FS9:

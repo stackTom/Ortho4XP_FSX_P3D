@@ -247,6 +247,11 @@ class Ortho4XP_GUI(tk.Tk):
             return None
         elif error_string:
             return (48,-6)
+
+        if True and O4_ESP_Globals.build_for_FS9:
+            #print("BEFORE CLIPPING", lat, lon)
+            lon = clip_to_lod_cell(lon, "Longitude", 13)
+            lat = clip_to_lod_cell(lat, "Latitude", 13)
         return (lat,lon)
         
     def tile_from_interface(self):
@@ -532,6 +537,7 @@ class Ortho4XP_Custom_ZL(tk.Toplevel):
         self.polyobj_list=[]
         self.poly_curr=[]
         bdpoints=[]
+
         for [latp,lonp] in [[lat,lon],[lat,lon+1],[lat+1,lon+1],[lat+1,lon]]:
                 [x,y]=self.latlon_to_xy(latp,lonp,self.zoomlevel)
                 bdpoints+=[int(x),int(y)]
@@ -851,6 +857,9 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         
         self.canvas.config(scrollregion=(1,1,2**self.earthzl*256-1,2**self.earthzl*256-1)) #self.canvas.bbox(ALL))
         (x0,y0)=GEO.wgs84_to_pix(lat+0.5,lon+0.5,self.earthzl)
+        if O4_ESP_Globals.build_for_FS9:
+            (x0,y0)=GEO.wgs84_to_pix(lat+(0.5 * GEO.FS9_LOD_13_LAT_SPAN),lon+(0.5 * GEO.FS9_LOD_13_LON_SPAN),self.earthzl)
+
         x0=max(1,x0-self.canvas_min_x/2)
         y0=max(1,y0-self.canvas_min_y/2)
         self.canvas.xview_moveto(x0/self.resolution)
@@ -873,6 +882,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         self.latlon.set(FNAMES.short_latlon(self.active_lat,self.active_lon))        
         [x0,y0]=GEO.wgs84_to_pix(self.active_lat+1,self.active_lon,self.earthzl)
         [x1,y1]=GEO.wgs84_to_pix(self.active_lat,self.active_lon+1,self.earthzl)
+        if O4_ESP_Globals.build_for_FS9:
+            [x0,y0]=GEO.wgs84_to_pix(self.active_lat+GEO.FS9_LOD_13_LAT_SPAN,self.active_lon,self.earthzl)
+            [x1,y1]=GEO.wgs84_to_pix(self.active_lat,self.active_lon+GEO.FS9_LOD_13_LON_SPAN,self.earthzl)
+
         self.active_tile=self.canvas.create_rectangle(x0,y0,x1,y1,fill='',outline='yellow',width=3)
         self.threaded_preview()
         return
@@ -917,6 +930,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
                     if (lat,lon) in self.dico_tiles_done: continue                      
                     [x0,y0]=GEO.wgs84_to_pix(lat+1,lon,self.earthzl)
                     [x1,y1]=GEO.wgs84_to_pix(lat,lon+1,self.earthzl)
+                    if O4_ESP_Globals.build_for_FS9:
+                        [x0,y0]=GEO.wgs84_to_pix(lat+GEO.FS9_LOD_13_LAT_SPAN,lon,self.earthzl)
+                        [x1,y1]=GEO.wgs84_to_pix(lat,lon+GEO.FS9_LOD_13_LON_SPAN,self.earthzl)
+
                     if os.path.isfile(os.path.join(self.working_dir,dir_name,"Earth nav data",FNAMES.long_latlon(lat,lon)+'.dsf')):
                         color='blue'
                         content=''
@@ -968,6 +985,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
                         continue
                     [x0,y0]=GEO.wgs84_to_pix(lat+1,lon,self.earthzl)
                     [x1,y1]=GEO.wgs84_to_pix(lat,lon+1,self.earthzl)
+                    if O4_ESP_Globals.build_for_FS9:
+                        [x0,y0]=GEO.wgs84_to_pix(lat+GEO.FS9_LOD_13_LAT_SPAN,lon,self.earthzl)
+                        [x1,y1]=GEO.wgs84_to_pix(lat,lon+GEO.FS9_LOD_13_LON_SPAN,self.earthzl)
+
                     color='blue'
                     content=''
                     try:
@@ -1008,6 +1029,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         for (lat,lon) in self.dico_tiles_todo:
             [x0,y0]=GEO.wgs84_to_pix(lat+1,lon,self.earthzl)
             [x1,y1]=GEO.wgs84_to_pix(lat,lon+1,self.earthzl)
+            if O4_ESP_Globals.build_for_FS9:
+                [x0,y0]=GEO.wgs84_to_pix(lat+GEO.FS9_LOD_13_LAT_SPAN,lon,self.earthzl)
+                [x1,y1]=GEO.wgs84_to_pix(lat,lon+GEO.FS9_LOD_13_LON_SPAN,self.earthzl)
+
             self.canvas.delete(self.dico_tiles_todo[(lat,lon)]) 
             self.dico_tiles_todo[(lat,lon)]=self.canvas.create_rectangle(x0,y0,x1,y1,fill='red',stipple='gray12') if not OsX else self.canvas.create_rectangle(x0,y0,x1,y1,outline='red',width=2)
         return
@@ -1052,6 +1077,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
             pass
         [x0,y0]=GEO.wgs84_to_pix(lat+1,lon,self.earthzl)
         [x1,y1]=GEO.wgs84_to_pix(lat,lon+1,self.earthzl)
+        if O4_ESP_Globals.build_for_FS9:
+            [x0,y0]=GEO.wgs84_to_pix(lat+GEO.FS9_LOD_13_LAT_SPAN,lon,self.earthzl)
+            [x1,y1]=GEO.wgs84_to_pix(lat,lon+GEO.FS9_LOD_13_LON_SPAN,self.earthzl)
+
         self.active_tile=self.canvas.create_rectangle(x0,y0,x1,y1,fill='',outline='yellow',width=3)
         self.parent.lat.set(lat)
         self.parent.lon.set(lon)
@@ -1112,6 +1141,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         if (lat,lon) not in self.dico_tiles_todo:
             [x0,y0]=GEO.wgs84_to_pix(lat+1,lon,self.earthzl)
             [x1,y1]=GEO.wgs84_to_pix(lat,lon+1,self.earthzl)
+            if O4_ESP_Globals.build_for_FS9:
+                [x0,y0]=GEO.wgs84_to_pix(lat+GEO.FS9_LOD_13_LAT_SPAN,lon,self.earthzl)
+                [x1,y1]=GEO.wgs84_to_pix(lat,lon+GEO.FS9_LOD_13_LON_SPAN,self.earthzl)
+
             if not OsX:
                 self.dico_tiles_todo[(lat,lon)]=self.canvas.create_rectangle(x0,y0,x1,y1,fill='red',stipple='gray12') 
             else:

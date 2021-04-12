@@ -1,9 +1,15 @@
 from math import log, tan, pi, atan, exp, cos, sin, sqrt, atan2
 import pyproj
+import O4_ESP_Globals
+import math
 
 earth_radius = 6378137
 lat_to_m      = pi*earth_radius/180
 m_to_lat      = 1/lat_to_m
+
+FS9_LOD_13_LAT_SPAN = 90.0 / (2.0 ** 13)
+FS9_LOD_13_LON_SPAN = 120.0 / (2.0 ** 13)
+
 def lon_to_m(lat):
     return lat_to_m*cos(pi*lat/180)
 def m_to_lon(lat):
@@ -30,6 +36,33 @@ def transform(s_epsg, t_epsg, s_x, s_y):
     return pyproj.transform(epsg[s_epsg], epsg[t_epsg], s_x, s_y)
 ##############################################################################
 
+def clip_to_lod_cell(coordinate, coordinate_type, lod):
+    quad_tree_id_type = None
+
+    if coordinate_type == "Latitude":
+        quad_tree_id_type = "V"
+    elif coordinate_type == "Longitude":
+        quad_tree_id_type = "U"
+
+    quad_tree_id_snapped = math.floor(coord_to_quadtree_id(coordinate, coordinate_type, lod))
+
+    return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
+
+def coord_to_quadtree_id(coordinate, coord_type, lod):
+    if coord_type == "Latitude":
+        return -((coordinate - 90.0) * (2.0 ** lod)) / 90.0
+    if coord_type == "Longitude":
+        return ((coordinate + 180.0) * (2.0 ** lod)) / 120.0
+
+    raise Exception("Unknown coordinate type")
+
+def quadtree_id_to_coord(id, id_type, lod):
+    if id_type == "V":
+        return 90.0 - id * (90.0 / (2.0 ** lod))
+    if id_type == "U":
+        return -180.0 + id * (120.0 / 2.0 ** lod)
+
+    raise Exception("Unknown id type")
 ##############################################################################
 def gtile_to_wgs84(til_x,til_y,zoomlevel):
     """
@@ -41,6 +74,7 @@ def gtile_to_wgs84(til_x,til_y,zoomlevel):
     rat_y=(1-til_y/(2**(zoomlevel-1)))
     lon=rat_x*180
     lat=360/pi*atan(exp(pi*rat_y))-90
+
     return (lat,lon)
 ##############################################################################
 

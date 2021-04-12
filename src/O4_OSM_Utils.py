@@ -299,6 +299,9 @@ def OSM_queries_to_OSM_layer(queries,osm_layer,lat,lon,tags_of_interest=[],serve
                 continue
         UI.vprint(1,"    * Downloading OSM data for",query)        
         response=get_overpass_data(query,(lat,lon,lat+1,lon+1),server_code)
+        if O4_ESP_Globals.build_for_FS9:
+            response=get_overpass_data(query,(lat,lon,lat+GEO.FS9_LOD_13_LAT_SPAN,lon+GEO.FS9_LOD_13_LON_SPAN),server_code)
+
         if UI.red_flag: return 0
         if not response: 
            UI.logprint("No valid answer for",query,"after",max_osm_tentatives,", skipping it.") 

@@ -389,8 +389,13 @@ def initialize_local_combined_providers_dict(tile):
     for provider_code in test_set.intersection(combined_providers_dict):
             comb_list=[]
             for rlayer in combined_providers_dict[provider_code]:
-                if has_data((tile.lon,tile.lat+1,tile.lon+1,tile.lat),rlayer['extent_code'],is_mask_layer=(tile.lat,tile.lon,tile.mask_zl) if rlayer['priority']=='mask' else False):
-                    comb_list.append(rlayer)
+                if not O4_ESP_Globals.build_for_FS9:
+                    if has_data((tile.lon,tile.lat+1,tile.lon+1,tile.lat),rlayer['extent_code'],is_mask_layer=(tile.lat,tile.lon,tile.mask_zl) if rlayer['priority']=='mask' else False):
+                        comb_list.append(rlayer)
+                else:
+                    if has_data((tile.lon,tile.lat+GEO.FS9_LOD_13_LAT_SPAN,tile.lon+GEO.FS9_LOD_13_LON_SPAN,tile.lat),rlayer['extent_code'],is_mask_layer=(tile.lat,tile.lon,tile.mask_zl) if rlayer['priority']=='mask' else False):
+                        comb_list.append(rlayer)
+
             if comb_list:
                 if len(comb_list)!=1:
                     new_comb_list=[]
@@ -403,6 +408,9 @@ def initialize_local_combined_providers_dict(tile):
                             new_rlayer['extent_code']=new_extent_code
                             new_comb_list.append(new_rlayer) 
                             extents_dict[new_extent_code]={'dir':'Auto','code':new_extent_code,'mask_bounds':[tile.lon-0.1,tile.lat-0.1,tile.lon+1.1,tile.lat+1.1]}
+                            if O4_ESP_Globals:
+                                extents_dict[new_extent_code]={'dir':'Auto','code':new_extent_code,'mask_bounds':[tile.lon-(0.1 * GEO.FS9_LOD_13_LON_SPAN),tile.lat-(0.1 * GEO.FS9_LOD_13_LAT_SPAN),tile.lon+(1.1 * GEO.FS9_LOD_13_LON_SPAN),tile.lat+(1.1 * GEO.FS9_LOD_13_LAT_SPAN)]}
+
                             if os.path.exists(os.path.join(FNAMES.Extent_dir,'Auto',new_extent_code+".png")):
                                 UI.vprint(1,"    Recycling layer mask for ",name)
                                 continue
@@ -438,6 +446,9 @@ def initialize_local_combined_providers_dict(tile):
                             vector_map.write_poly_file(name+'.poly')
                             MESH.triangulate(name,'.')
                             ((xmin,ymin,xmax,ymax),mask_im)=MASK.triangulation_to_image(name,pixel_size,(tile.lon-0.1,tile.lat-0.1,tile.lon+1.1,tile.lat+1.1))
+                            if O4_ESP_Globals.build_for_FS9:
+                                ((xmin,ymin,xmax,ymax),mask_im)=MASK.triangulation_to_image(name,pixel_size,(tile.lon-(0.1 * GEO.FS9_LOD_13_LON_SPAN),tile.lat-(0.1 * GEO.FS9_LOD_13_LAT_SPAN),tile.lon+(1.1 * GEO.FS9_LOD_13_LON_SPAN),tile.lat+(1.1 * GEO.FS9_LOD_13_LAT_SPAN)))
+
                             if buffer_width:
                                 mask_im=mask_im.filter(ImageFilter.GaussianBlur(buffer_width/4))
                                 if buffer_width>0:
@@ -1077,15 +1088,38 @@ def crop_img_to_coords(img_name, old_coords, new_coords, img_cell_x_dimension_de
 def prepare_images_for_resample(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
     img_top_left_tile = GEO.gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
     img_bottom_right_tile = GEO.gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
-    clamped_img_top_left, clamped_img_bottom_right = O4_ESP_Utils.determine_img_nw_se_coords(tile, til_x_left, til_x_right,
-                                                                          til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile,
-                                                                          zoomlevel)
-
+    clamped_img_top_left, clamped_img_bottom_right = img_top_left_tile, img_bottom_right_tile
     (IMG_X_DIM, IMG_Y_DIM) = get_image_dimensions(file_dir + os.sep + file_name)
     # don't calculate these dimension_deg's based on the clamped img coords, but on the coords of the full img downloaded
     img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
     img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
     old_coords = { "top_left": img_top_left_tile, "bottom_right": img_bottom_right_tile }
+    if False and O4_ESP_Globals.build_for_FS9:
+        new_coords = O4_ESP_Utils.get_snapped_FS9_coords(clamped_img_top_left, clamped_img_bottom_right, 13)
+        north_lat = new_coords[0]
+        south_lat = new_coords[1]
+        west_lon = new_coords[2]
+        east_lon = new_coords[3]
+        img_top_left_tile = [north_lat, west_lon]
+        img_bottom_right_tile = [south_lat, east_lon]
+        clamped_img_top_left = img_top_left_tile
+        clamped_img_bottom_right = img_bottom_right_tile
+
+        # NOTE: these lines surrounded by ---- are a complete hack. I have only a vague idea of why they work.
+        # I've no clue why for x you only change the img_cell_x_dimension_deg. changing the actual
+        # clamped_img_bottom_right causes random black squares to appear (although it does fix the right land border).
+        # Conversely, for the y dimension, you need to change the actual clamped_img_top_left - changing just
+        # img_cell_y_dimension_deg causes black boxes to appear and the problem (north side water border) not to be fixed.
+        # fs9 resample.exe has bugs plain and simple
+        # -----------------------------------------------------------------------------------------
+        # I think these two need to be equal else get black squares in certain tiles
+        FIX_EAST_BORDER = 0.0
+        FIX_NORTH_BORDER = 0.0
+        clamped_img_top_left[0] += FIX_NORTH_BORDER
+        # -----------------------------------------------------------------------------------------
+
+        img_cell_x_dimension_deg = (clamped_img_bottom_right[1] - clamped_img_top_left[1] + FIX_EAST_BORDER) / IMG_X_DIM
+        img_cell_y_dimension_deg = (clamped_img_top_left[0] - clamped_img_bottom_right[0]) / IMG_Y_DIM
     new_coords = { "top_left": clamped_img_top_left, "bottom_right": clamped_img_bottom_right }
 
     if IMG_X_DIM == 4096 and IMG_Y_DIM == 4096:
@@ -1236,6 +1270,10 @@ def create_tile_preview(lat,lon,zoomlevel,provider_code):
         provider=providers_dict[provider_code]
         (til_x_min,til_y_min)=GEO.wgs84_to_gtile(lat+1,lon,zoomlevel)
         (til_x_max,til_y_max)=GEO.wgs84_to_gtile(lat,lon+1,zoomlevel)
+        if O4_ESP_Globals.build_for_FS9:
+            (til_x_min,til_y_min)=GEO.wgs84_to_gtile(lat+GEO.FS9_LOD_13_LAT_SPAN,lon,zoomlevel)
+            (til_x_max,til_y_max)=GEO.wgs84_to_gtile(lat,lon+GEO.FS9_LOD_13_LON_SPAN,zoomlevel)
+
         width=(til_x_max+1-til_x_min)*256
         height=(til_y_max+1-til_y_min)*256
         if 'grid_type' in provider and provider['grid_type']=='webmercator':

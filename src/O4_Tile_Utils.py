@@ -25,6 +25,8 @@ def download_textures(tile,download_queue,convert_queue):
     done=0
     while True:
         texture_attributes=download_queue.get()
+        print(texture_attributes)
+        #os._exit(0)
         if isinstance(texture_attributes,str) and texture_attributes=='quit':
             UI.progress_bar(2,100)
             break
