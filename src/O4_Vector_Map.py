@@ -40,7 +40,7 @@ def build_poly_file(tile):
     
     if UI.red_flag: UI.exit_message_and_bottom_line(); return 0
 
-    if O4_ESP_Globals.build_for_ESP and os.path.isfile(O4_Config_Utils.ESP_scenproc_loc):
+    if (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9) and os.path.isfile(O4_Config_Utils.ESP_scenproc_loc):
         include_scenproc(tile)
 
     # Airports
@@ -120,6 +120,7 @@ def build_poly_file(tile):
 ##############################################################################
 
 ##############################################################################
+# TODO: multiprocess/multithread this as it is slow download
 def include_scenproc(tile):
     print("Downloading OSM data for ScenProc, this might take some time, please wait...")
     print("If OSM server rejects our request due to too many requests, will keep trying until successful.")
@@ -141,13 +142,16 @@ def include_scenproc(tile):
 
             max_lat = tile.lat + ((j + 1) / NUM_STEPS)
 
-            print("Attempting to download OSM data from " + str(min_lat) + ", " + str(min_lon) + " to " + str(max_lat) + ", " + str(max_lon))
-            response = OSM.get_overpass_data("", (min_lon, min_lat, max_lon, max_lat), "MAP")
             file_name = os.path.join(scenproc_osm_dir, "scenproc_osm_data" + str(i) + "_" + str (j) + ".osm")
-            with open(file_name, "wb") as f:
-                f.write(response)
+            if not os.path.isfile(file_name):
+                print("Attempting to download OSM data from " + str(min_lat) + ", " + str(min_lon) + " to " + str(max_lat) + ", " + str(max_lon))
+                response = OSM.get_overpass_data("", (min_lon, min_lat, max_lon, max_lat), "MAP")
+                with open(file_name, "wb") as f:
+                    f.write(response)
 
-            print("Download successful")
+                print("Download successful")
+            else:
+                print("%s already exists, so no need to download" % (file_name))
 ##############################################################################
 
 ##############################################################################

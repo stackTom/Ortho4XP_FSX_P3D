@@ -32,6 +32,8 @@ import O4_Mask_Utils as MASK
 from O4_Parallel_Utils import parallel_execute
 import O4_ESP_Globals
 import O4_ESP_Utils
+from PIL import Image
+from fast_image_mask import *
 
 http_timeout=10
 check_tms_response=False
@@ -990,7 +992,7 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
                 true_file_name=FNAMES.jpeg_file_name_from_attributes(true_til_x_left, true_til_y_top, true_zl,rlayer['layer_code'])
                 true_file_dir=FNAMES.jpeg_file_dir_from_attributes(tile.lat, tile.lon,true_zl,providers_dict[rlayer['layer_code']])
                 name, extension = os.path.splitext(true_file_name)
-                if O4_ESP_Globals.build_for_ESP:
+                if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
                     extension = ".bmp"
                     true_file_name = name + extension
                 final_file_dir = true_file_dir
@@ -1023,8 +1025,11 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         file_name=FNAMES.jpeg_file_name_from_attributes(til_x_left, til_y_top, zoomlevel,provider_code)
         file_dir=FNAMES.jpeg_file_dir_from_attributes(tile.lat, tile.lon,zoomlevel,providers_dict[provider_code])
         name, extension = os.path.splitext(file_name)
-        if O4_ESP_Globals.build_for_ESP:
+        if O4_ESP_Globals.build_for_FSX_P3D:
             extension = ".bmp"
+            file_name = name + extension
+        elif O4_ESP_Globals.build_for_FS9:
+            extension = ".tga"
             file_name = name + extension
         final_file_dir = file_dir
         final_file_name = file_name
@@ -1039,13 +1044,59 @@ def build_photo_ortho(tile, til_x_left,til_y_top,zoomlevel,provider_code,out_fil
         UI.vprint(1,"   Unknown provider",provider_code,"or it has no data around",tlat,tlon,".")
         return 0
 
-    if O4_ESP_Globals.build_for_ESP:
+    if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
         nbr = 16
         # TODO: stop using globals, only used them cause I wanted to get v130 to work in one night with masking, etc
         O4_ESP_Globals.ESP_build_dir = final_file_dir
-        O4_ESP_Utils.make_ESP_inf_file(final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel)
+        # prepare_images_for_resample could be placed in a spot that better fits its role, and prevents images from
+        # having to be manipulated after being made. but that is alot of work and just not work it
+        # TODO: maybe fix this in future? seems like will require a ton of effort and rewrite of the guts of ortho4xp though...
+        prepare_images_for_resample(tile, final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel, O4_ESP_Globals.build_for_FS9)
+        O4_ESP_Utils.make_ESP_inf_file(tile, final_file_dir, final_file_name, til_x_left, (til_x_left + nbr), til_y_top, (til_y_top + nbr), zoomlevel, O4_ESP_Globals.build_for_FS9)
 
     return 1
+
+def crop_img_to_coords(img_name, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg):
+    im = Image.open(img_name)
+    (width, height) = im.size
+    left = ceil(abs(old_coords["top_left"][1] - new_coords["top_left"][1]) / img_cell_x_dimension_deg)
+    top = ceil(abs(old_coords["top_left"][0] - new_coords["top_left"][0]) / img_cell_y_dimension_deg)
+    right = width - ceil(abs(old_coords["bottom_right"][1] - new_coords["bottom_right"][1]) / img_cell_x_dimension_deg)
+    bottom = height - ceil(abs(old_coords["bottom_right"][0] - new_coords["bottom_right"][0]) / img_cell_y_dimension_deg)
+
+    # don't do anything if nothing to crop
+    if left == 0 and top == 0 and right == width and bottom == height:
+        im.close()
+        return
+
+    imc = im.crop((left, top, right, bottom))
+    im.close()
+    imc.save(img_name)
+    imc.close()
+
+def prepare_images_for_resample(tile, file_dir, file_name, til_x_left, til_x_right, til_y_top, til_y_bot, zoomlevel, use_FS9_type=False):
+    img_top_left_tile = GEO.gtile_to_wgs84(til_x_left, til_y_top, zoomlevel)
+    img_bottom_right_tile = GEO.gtile_to_wgs84(til_x_right, til_y_bot, zoomlevel)
+    clamped_img_top_left, clamped_img_bottom_right = O4_ESP_Utils.determine_img_nw_se_coords(tile, til_x_left, til_x_right,
+                                                                          til_y_top, til_y_bot, img_top_left_tile, img_bottom_right_tile,
+                                                                          zoomlevel)
+
+    (IMG_X_DIM, IMG_Y_DIM) = get_image_dimensions(file_dir + os.sep + file_name)
+    # don't calculate these dimension_deg's based on the clamped img coords, but on the coords of the full img downloaded
+    img_cell_x_dimension_deg = (img_bottom_right_tile[1] - img_top_left_tile[1]) / IMG_X_DIM
+    img_cell_y_dimension_deg = (img_top_left_tile[0] - img_bottom_right_tile[0]) / IMG_Y_DIM
+    old_coords = { "top_left": img_top_left_tile, "bottom_right": img_bottom_right_tile }
+    new_coords = { "top_left": clamped_img_top_left, "bottom_right": clamped_img_bottom_right }
+
+    if IMG_X_DIM == 4096 and IMG_Y_DIM == 4096:
+        crop_img_to_coords(file_dir + os.sep + file_name, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
+
+    _, _, img_mask_abs_path = O4_ESP_Utils.get_mask_paths(file_name)
+    if O4_ESP_Utils.should_mask_file(img_mask_abs_path):
+        (mask_img_x_pixels, mask_img_y_pixels) = get_image_dimensions(img_mask_abs_path)
+        if mask_img_x_pixels == 4096 and mask_img_y_pixels == 4096:
+            crop_img_to_coords(img_mask_abs_path, old_coords, new_coords, img_cell_x_dimension_deg, img_cell_y_dimension_deg)
+
 ###############################################################################################################################
 
 ###############################################################################################################################
@@ -1501,3 +1552,25 @@ def geotag(input_file_name):
             break
         print("WARNING: Could not convert texture",out_file_name)
         time.sleep(1)
+
+# TODO: for speedup, add alpha channel from c++
+# TODO: surround Image.open() with with statement....
+def add_image_as_anothers_alpha_channel(image_path, alpha_image_path, output_path, custom_alpha=-1):
+    im = Image.open(image_path).convert('RGB')
+    if custom_alpha < 0:
+        # Open alpha channel, ensuring single channel
+        alpha = Image.open(alpha_image_path).convert('L')
+
+        # Add that alpha channel to background image
+        im.putalpha(alpha)
+    else:
+        im.putalpha(custom_alpha)
+
+    im.save(output_path)
+
+def get_image_dimensions(image_path):
+    dims = None
+    with Image.open(image_path) as img:
+        dims = img.size
+
+    return dims

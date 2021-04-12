@@ -767,7 +767,7 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
     resolution=2**earthzl*256
     
     list_del_ckbtn = ['OSM data','Mask data','Jpeg imagery','Tile (whole)','Tile (textures)']
-    list_do_ckbtn  = ['Assemble vector data','Triangulate 3D mesh','Draw water masks','Build imagery/DSF','Extract overlays','Read per tile cfg', 'Build For ESP (FSX/P3D)']
+    list_do_ckbtn  = ['Assemble vector data','Triangulate 3D mesh','Draw water masks','Build imagery/DSF','Extract overlays','Read per tile cfg']
     
     canvas_min_x=900
     canvas_min_y=700
@@ -789,6 +789,10 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         self.v_={}
         for item in self.list_del_ckbtn+self.list_do_ckbtn:
             self.v_[item]=tk.IntVar()
+        # fs9 and fsx/p3d button variables
+        self.v_["Build For ESP (FSX/P3D)"] = tk.IntVar()
+        self.v_["Build For ESP (FS9)"] = tk.IntVar()
+
         self.latlon = tk.StringVar()
         
         # Frames
@@ -820,6 +824,16 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         for item in self.list_do_ckbtn:
             tk.Checkbutton(self.frame_left,text=item,anchor=W,variable=self.v_[item],bg="light green",activebackground="light green",highlightthickness=0).grid(row=row,column=0,padx=5,pady=5,sticky=N+S+E+W)
             row+=1
+        # fs9 and fsx/p3d buttons
+        item = "Build For ESP (FSX/P3D)"
+        self.fsx_p3d_btn = tk.Checkbutton(self.frame_left,text=item,anchor=W,variable=self.v_[item],bg="light green",activebackground="light green",highlightthickness=0, command=self.fsx_p3d_btn_callback)
+        self.fsx_p3d_btn.grid(row=row,column=0,padx=5,pady=5,sticky=N+S+E+W)
+        row+=1
+        item = "Build For ESP (FS9)"
+        self.fs9_btn = tk.Checkbutton(self.frame_left,text=item,anchor=W,variable=self.v_[item],bg="light green",activebackground="light green",highlightthickness=0, command=self.fs9_btn_callback)
+        self.fs9_btn.grid(row=row,column=0,padx=5,pady=5,sticky=N+S+E+W)
+        row+=1
+
         ttk.Button(self.frame_left,text='  Batch Build   ',command=self.batch_build).grid(row=row,column=0,padx=5,pady=5,sticky=N+S+E+W)
         row+=1
         # Refresh window
@@ -863,6 +877,14 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         self.threaded_preview()
         return
         
+    def fsx_p3d_btn_callback(self):
+        if self.v_["Build For ESP (FSX/P3D)"].get() == 1 and self.v_["Build For ESP (FS9)"].get() == 1:
+            self.fs9_btn.deselect()
+
+    def fs9_btn_callback(self):
+        if self.v_["Build For ESP (FSX/P3D)"].get() == 1 and self.v_["Build For ESP (FS9)"].get() == 1:
+            self.fsx_p3d_btn.deselect()
+
     def set_working_dir(self):
         self.custom_build_dir=self.parent.custom_build_dir.get()
         self.grouped= self.custom_build_dir and self.custom_build_dir[-1]!='/'
@@ -1100,13 +1122,15 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         return
 
     def batch_build(self):
-        O4_ESP_Globals.build_for_ESP = True if self.v_["Build For ESP (FSX/P3D)"].get() else False
+        O4_ESP_Globals.build_for_FSX_P3D = True if self.v_["Build For ESP (FSX/P3D)"].get() else False
+        O4_ESP_Globals.build_for_FS9 = True if self.v_["Build For ESP (FS9)"].get() else False
         O4_ESP_Globals.do_build_masks = True if self.v_["Draw water masks"].get() else False
 
-        if O4_ESP_Globals.build_for_ESP and O4_ESP_Globals.do_build_masks:
-            main_window_tile_zoom = int(UI.gui.zl_combo.get())
+        main_window_tile_zoom = int(UI.gui.zl_combo.get())
+
+        if (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9) and O4_ESP_Globals.do_build_masks:
             if main_window_tile_zoom != CFG.mask_zl:
-                print("FSX/P3D building requires both the tile and mask zooms to equal. Setting the mask zoom to the tile zoom of " + str(main_window_tile_zoom))
+                print("FS9 and FSX/P3D building requires both the tile and mask zooms to equal. Setting the mask zoom to the tile zoom of " + str(main_window_tile_zoom))
                 CFG.mask_zl = main_window_tile_zoom
 
         list_lat_lon=sorted(self.dico_tiles_todo.keys())
