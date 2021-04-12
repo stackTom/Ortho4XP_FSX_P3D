@@ -86,7 +86,7 @@ def build_tile(tile):
     build_dsf_thread.start()
     if not skip_downloads:
         download_thread.start()
-        if not skip_converts and not O4_ESP_Globals.build_for_ESP:
+        if not skip_converts and not (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9):
             UI.vprint(1,"-> Opening convert queue and",max_convert_slots,"conversion workers.")
             dico_conv_progress={'done':0,'bar':3}
             convert_workers=parallel_launch(IMG.convert_texture,convert_queue,max_convert_slots,progress=dico_conv_progress)
@@ -94,7 +94,7 @@ def build_tile(tile):
     if not skip_downloads:
         download_queue.put('quit')
         download_thread.join()
-        if not skip_converts and not O4_ESP_Globals.build_for_ESP:
+        if not skip_converts and not (O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9):
             for _ in range(max_convert_slots): convert_queue.put('quit')
             parallel_join(convert_workers) 
             if UI.red_flag: 
@@ -122,7 +122,7 @@ def build_tile(tile):
         except: pass
     if UI.cleaning_level>1 and not tile.grouped:
         remove_unwanted_textures(tile)
-    if O4_ESP_Globals.build_for_ESP:
+    if O4_ESP_Globals.build_for_FSX_P3D or O4_ESP_Globals.build_for_FS9:
         O4_ESP_Utils.build_for_ESP(O4_ESP_Globals.ESP_build_dir, tile)
 
     UI.timings_and_bottom_line(timer)

@@ -70,6 +70,18 @@ static PyObject * create_winter(PyObject *self, PyObject *args) {
 
     Py_RETURN_NONE;
 }
+
+static PyObject * FS9_mask_main_image(PyObject *self, PyObject *args) {
+    InitializeMagick("");
+    char *imgName, *outName, *maskName;
+    if (!PyArg_ParseTuple(args, "zzz", &imgName, &outName, &maskName)) {
+        return NULL;
+    }
+
+    c_FS9_mask_main_image(imgName, outName, maskName);
+
+    Py_RETURN_NONE;
+}
 // Method definition object for this extension, these argumens mean:
 // ml_name: The name of the method
 // ml_meth: Function pointer to the method implementation
@@ -112,6 +124,13 @@ static PyMethodDef fast_image_mask_functions[] = {
         //METH_NOARGS,
         METH_VARARGS,
         "Create winter image named outName from imgName image"
+    },
+    {
+        "FS9_mask_main_image",
+        FS9_mask_main_image,
+        //METH_NOARGS,
+        METH_VARARGS,
+        "Make the non alpha channel of an FS9 image be black in the same spots as the mask file"
     },
     {NULL, NULL, 0, NULL}
 };

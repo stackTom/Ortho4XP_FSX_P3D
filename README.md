@@ -1,26 +1,43 @@
 # Ortho4XP_FSX_P3D
 A scenery generator for the X-Plane flight simulator
 
-Work in progress at adding FSX/P3D (ESP support)
+Work in progress at adding FSX/P3D and FS2004 (FS9) support
 
 # Use at your own risk
 
 # Prerequisites
 
-Please install ImageMagick before attempting to run, otherwise the night/season creation won't work. An installer has been provided inside the dist/ directory. Run the installer with the default settings.
+Please install ImageMagick before attempting to run, otherwise the night/season creation won't work. An installer has been provided inside the Binary/ directory. Run the installer with the default settings.
 The same installer can also be found here: https://www.imagemagick.org/download/binaries/ImageMagick-7.0.8-10-Q8-x64-dll.exe
+
+# Prerequisites for FSX/P3D
 
 NOTE: Need to provide the location of your resample.exe from the P3D or FSX SDK in Ortho4XP.cfg, like this:
 
-`ESP_resample_loc=C:\\LOCATION\\TO\\resample.exe`
+`FSX_P3D_resample_loc=C:\\LOCATION\\TO\\resample.exe`
 
 Notice the double backslashes `\\` instead of single `\`. This key is only supported by this fork and will be deleted from the Ortho4XP.cfg file each time you change and save the settings via the settings screen in the GUI, so be sure to add it again using a text editor if it gets removed.
 
 You can obtain the P3D resample.exe by installing the P3D SDK provided by Lockheed Martin on their site where you download P3D.
-For FSX, resample.exe can be found by installing the FSX SDK found in the FSX Deluxe Disc 1 or in FSX Acceleration Pack (or FSX Gold which includes the Acceleration pack). The Steam edition of FSX does have an SDK but doesn't include the resample.exe executable, so you will have to install the regular SDK from any of these other sources (the FSX SDK has its own installer and can be installed separately without having to install the full game). 
+For FSX, resample.exe can be found by installing the FSX SDK found in the FSX Deluxe Disc 1 or in FSX Acceleration Pack (or FSX Gold which includes the Acceleration pack). The Steam edition of FSX does have an SDK but doesn't include the resample.exe executable, so you will have to install the regular SDK from any of these other sources (the FSX SDK has its own installer and can be installed separately without having to install the full game).
+
+# Prerequisites for FS2004 (FS9)
+
+In order to properly build for FS2004 (aka FS9), provide the location of your FS9 resample.exe from the FS9 SDK, like this:
+
+`FS9_resample_loc=F:\\ortho4xpvm\\resample.exe`
+
+FS9's resample.exe works differently than the one for FSX/P3D... It requires the use of `imagetool.exe` from the FS9 SDK in order to work properly. Provide it in Ortho4XP.cfg like this:
+
+`FS9_imagetool_loc=F:\\ortho4xpvm\\imagetool.exe`
+
+Notice the double backslashes `\\` instead of single `\`. This key is only supported by this fork and will be deleted from the Ortho4XP.cfg file each time you change and save the settings via the settings screen in the GUI, so be sure to add it again using a text editor if it gets removed.
+
+You can obtain FS9's resample.exe and imagetool.exe from the FS9 SDK. An example of where to obtain the SDK from:
+https://www.avsim.com/forums/topic/383312-all-the-sdks-fs2004-available-here/
 
 # Running from exe
-An executable (.exe) file has been provided in the dist/ directory, if you don't want to build the binary yourself. Simply double click on it, and it'll run. It cannot run without the parent folders though.
+An executable (.exe) file has been provided in the Binary/ directory, if you don't want to build the binary yourself. Simply double click on it, and it'll run. It cannot run without the parent folders though.
 
 # Running with Python
 To install, follow the install guide for Ortho4XP, making sure to install all python libraries, and run Ortho4XP_v130.py from the command line.
@@ -36,7 +53,8 @@ Either the x86 or x64 version, depending on whether your operating system is 32 
 4) Set the path to scenProc.exe in Ortho4XP.cfg, like this:
 `ESP_scenproc_loc=C:\\path\\to\\ScenProc\\scenProc.exe`
 5) OPTIONAL: You can create more scripts to guide ScenProc in creating autogen. They *MUST* be placed inside the `ScenProc_configs` folder. You can select which script for ScenProc to utilize, by changing the following line in Ortho4XP.cfg:
-`ESP_scenproc_script=default.spc`, where `default.spc` is the name of the script you wish to use inside the `ScenProc_configs` folder
+`ESP_scenproc_script=default.spc`, where `default.spc` is the name of the script you wish to use inside the `ScenProc_configs` folder. Note that scripts for FS9 differ from those for FSX/P3D, so be sure you are providing an appropriate script name based on the sim you are generating scenery for.
+
 *IMPORTANT*: *MAKE SURE* to include the `@0@` and `@1@` in the same locations in your custom ScenProc scripts as are found in the default ScenProc script. Namely, the first and last lines:
 `IMPORTOGR|@0@|*|building;landuse;natural;leisure|NOREPROJ` and
 `EXPORTAGN|FSX|@1@`
@@ -50,9 +68,9 @@ Use pyinstaller like this:
 
 `pyinstaller --clean -F -p src Ortho4XP_v130.py`
 
-Then, copy spatialindex-64.dll and spatialindex_c.dll (from rtree python module) into the dist folder where the new executable is:
+Then, copy spatialindex-64.dll and spatialindex_c.dll (from rtree python module) into the Binary folder where the new executable is:
 
-`cp /cygdrive/c/Users/fery2/AppData/Local/Programs/Python/Python36/lib/site-packages/rtree/spatialindex*.dll dist/`
+`cp /cygdrive/c/Users/fery2/AppData/Local/Programs/Python/Python36/lib/site-packages/rtree/spatialindex*.dll Binary/`
 
 To build the imagemagick based c++ dll, use the Visual Studio Native Tools Command Prompt, and do something like:
 
@@ -65,7 +83,7 @@ Imagemagick is required, specifically the q8 quantum depth version. To build it 
 
 `./configure --with-tiff=yes --with-quantum-depth=8`
 
-# WHERE TO FIND the .bgl FILES FOR FSX
+# WHERE TO FIND the .bgl FILES
 Ortho4XP generates a bunch of .bgl files for each tile inside the `Orthophotos` directory (for instance: `Ortho4XP_FSX_P3D-master\Orthophotos\+30+000\+39+002\BI_16\ADDON_SCENERY`). Rename the `ADDON_SCENERY` folder to whatever you wish, and move it wherever you wish (recommended is inside the `Addons Scenery` folder inside FSX/P3D). Then, add the scenery using the add/remove scenery option inside of the sim
 
 # FINISHED:
