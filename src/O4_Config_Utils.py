@@ -105,7 +105,10 @@ list_dsf_vars=['cover_airports_with_highres','cover_extent','cover_zl','ratio_wa
 list_other_vars=['custom_dem','fill_nodata']
 list_tile_vars=list_vector_vars+list_mesh_vars+list_mask_vars+list_dsf_vars+list_other_vars+['default_website','default_zl','zone_list']
 
-list_global_cfg=list_app_vars+list_vector_vars+list_mesh_vars+list_mask_vars+list_dsf_vars
+list_ESP_vars = ['FSX_P3D_resample_loc', 'FS9_resample_loc', 'FS9_imagetool_loc', 'ESP_scenproc_loc', 'ESP_scenproc_script',
+                'max_resample_processes', 'create_ESP_night', 'create_ESP_summer', 'create_ESP_spring', 'create_ESP_fall',
+                'create_ESP_winter', 'create_ESP_hard_winter']
+list_global_cfg=list_app_vars+list_vector_vars+list_mesh_vars+list_mask_vars+list_dsf_vars + list_ESP_vars
 
 ############################################################################################
 # Initialization to default values
