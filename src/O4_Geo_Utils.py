@@ -117,3 +117,34 @@ def st_coord(lat,lon,tex_x,tex_y,zoomlevel,provider_code):
     t = t if t<=1 else 1
     return (s,t)
 ##############################################################################
+# FS9 stuff
+FS9_LOD13_LAT_SPAN = 90.0 / (2 ** 13)
+FS9_LOD13_LON_SPAN = 120.0 / (2 ** 13)
+
+def clip_to_lod_cell(coordinate, coordinate_type, lod):
+    quad_tree_id_type = None
+
+    if coordinate_type == "Latitude":
+        quad_tree_id_type = "V"
+    elif coordinate_type == "Longitude":
+        quad_tree_id_type = "U"
+
+    quad_tree_id_snapped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
+
+    return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
+
+def coord_to_quadtree_id(coordinate, coord_type, lod):
+    if coord_type == "Latitude":
+        return -((coordinate - 90.0) * (2.0 ** lod)) / 90.0
+    if coord_type == "Longitude":
+        return ((coordinate + 180.0) * (2.0 ** lod)) / 120.0
+
+    raise Exception("Unknown coordinate type")
+
+def quadtree_id_to_coord(id, id_type, lod):
+    if id_type == "V":
+        return 90.0 - id * (90.0 / (2.0 ** lod))
+    if id_type == "U":
+        return -180.0 + id * (120.0 / 2.0 ** lod)
+
+    raise Exception("Unknown id type")

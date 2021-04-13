@@ -10,6 +10,7 @@ from queue import Queue
 from threading import Thread
 import math
 import O4_Imagery_Utils
+import O4_Geo_Utils as GEO
 
 # TODO: use os.path.join instead of os.sep and concatenation
 # TODO: use format strings instead of concatenation
@@ -158,39 +159,11 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
 
     return (string if string != "" else None, source_num - 1)
 
-def clip_to_lod_cell(coordinate, coordinate_type, lod):
-    quad_tree_id_type = None
-
-    if coordinate_type == "Latitude":
-        quad_tree_id_type = "V"
-    elif coordinate_type == "Longitude":
-        quad_tree_id_type = "U"
-
-    quad_tree_id_snapped = round(coord_to_quadtree_id(coordinate, coordinate_type, lod), 0)
-
-    return quadtree_id_to_coord(quad_tree_id_snapped, quad_tree_id_type, lod)
-
-def coord_to_quadtree_id(coordinate, coord_type, lod):
-    if coord_type == "Latitude":
-        return -((coordinate - 90.0) * (2.0 ** lod)) / 90.0
-    if coord_type == "Longitude":
-        return ((coordinate + 180.0) * (2.0 ** lod)) / 120.0
-
-    raise Exception("Unknown coordinate type")
-
-def quadtree_id_to_coord(id, id_type, lod):
-    if id_type == "V":
-        return 90.0 - id * (90.0 / (2.0 ** lod))
-    if id_type == "U":
-        return -180.0 + id * (120.0 / 2.0 ** lod)
-
-    raise Exception("Unknown id type")
-
 def get_snapped_FS9_coords(img_top_left_tile, img_bottom_right_tile, lod):
-    north_lat = clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
-    south_lat = clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
-    west_lon = clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
-    east_lon = clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
+    north_lat = GEO.clip_to_lod_cell(img_top_left_tile[0], "Latitude", lod)
+    south_lat = GEO.clip_to_lod_cell(img_bottom_right_tile[0], "Latitude", lod)
+    west_lon = GEO.clip_to_lod_cell(img_top_left_tile[1], "Longitude", lod)
+    east_lon = GEO.clip_to_lod_cell(img_bottom_right_tile[1], "Longitude", lod)
 
     return (north_lat, south_lat, west_lon, east_lon)
 
