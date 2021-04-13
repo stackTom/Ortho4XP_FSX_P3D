@@ -16,7 +16,7 @@ NOTE: Need to provide the location of your resample.exe from the P3D or FSX SDK 
 
 `FSX_P3D_resample_loc=C:\\LOCATION\\TO\\resample.exe`
 
-Notice the double backslashes `\\` instead of single `\`. This key is only supported by this fork and will be deleted from the Ortho4XP.cfg file each time you change and save the settings via the settings screen in the GUI, so be sure to add it again using a text editor if it gets removed.
+Notice the double backslashes `\\` instead of single `\`.
 
 You can obtain the P3D resample.exe by installing the P3D SDK provided by Lockheed Martin on their site where you download P3D.
 For FSX, resample.exe can be found by installing the FSX SDK found in the FSX Deluxe Disc 1 or in FSX Acceleration Pack (or FSX Gold which includes the Acceleration pack). The Steam edition of FSX does have an SDK but doesn't include the resample.exe executable, so you will have to install the regular SDK from any of these other sources (the FSX SDK has its own installer and can be installed separately without having to install the full game).
