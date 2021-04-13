@@ -1122,6 +1122,9 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
         return
 
     def batch_build(self):
+        list_lat_lon=sorted(self.dico_tiles_todo.keys())
+        if not list_lat_lon: return
+
         O4_ESP_Globals.build_for_FSX_P3D = True if self.v_["Build For ESP (FSX/P3D)"].get() else False
         O4_ESP_Globals.build_for_FS9 = True if self.v_["Build For ESP (FS9)"].get() else False
         O4_ESP_Globals.do_build_masks = True if self.v_["Draw water masks"].get() else False
@@ -1133,8 +1136,6 @@ class Ortho4XP_Earth_Preview(tk.Toplevel):
                 print("FS9 and FSX/P3D building requires both the tile and mask zooms to equal. Setting the mask zoom to the tile zoom of " + str(main_window_tile_zoom))
                 CFG.mask_zl = main_window_tile_zoom
 
-        list_lat_lon=sorted(self.dico_tiles_todo.keys())
-        if not list_lat_lon: return
         (lat,lon)= list_lat_lon[0]
         try:
             tile=CFG.Tile(lat,lon,self.custom_build_dir)
