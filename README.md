@@ -50,9 +50,13 @@ Use pyinstaller like this:
 
 `pyinstaller --clean -F -p src Ortho4XP_v130.py`
 
-Then, copy spatialindex-64.dll and spatialindex_c.dll (from rtree python module) into the dist folder where the new executable is:
+Then, copy spatialindex-64.dll and spatialindex_c-64.dll (from rtree python module) into the dist folder where the new executable is:
 
-`cp /cygdrive/c/Users/fery2/AppData/Local/Programs/Python/Python36/lib/site-packages/rtree/spatialindex*.dll dist/`
+`cp /c/Users/fery2/AppData/Local/Programs/Python/Python36/Lib/site-packages/rtree/lib/spatialindex* dist/`
+
+If the executable crashes with errors like `OSError: could not find or load spatialindex_c-64.dll`, then follow these instructions: https://stackoverflow.com/questions/64398516/pyinstaller-exe-oserror-could-not-find-or-load-spatialindex-c-64-dll
+
+(Basically, find the `Ortho4XP_v130.spec` file, which should be in the same directory as Ortho4XP_v130.py. Add this import to it: `from PyInstaller.utils.hooks import collect_dynamic_libs`. Then, change the line that says `binaries=[]` to `binaries=collect_dynamic_libs("rtree")`. A sample `Ortho4XP_v130.spec` file is provided for reference, but it is recommended to use the one produced by pyinstaller and edit it with the lines just mentioned. After doing this, run `pyinstaller Ortho4XP_v130.spec`).
 
 To build the imagemagick based c++ dll, use the Visual Studio Native Tools Command Prompt, and do something like:
 
