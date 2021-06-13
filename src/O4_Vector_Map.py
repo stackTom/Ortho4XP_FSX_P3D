@@ -126,28 +126,43 @@ def include_scenproc(tile):
     scenproc_osm_dir = os.path.join(FNAMES.osm_dir(tile.lat, tile.lon), "scenproc_osm_data")
     if not os.path.exists(scenproc_osm_dir):
         os.mkdir(scenproc_osm_dir)
-    NUM_SCENPROC_CHUNKS = 16
-    NUM_STEPS = int(sqrt(NUM_SCENPROC_CHUNKS))
-    for i in range(NUM_STEPS):
-        min_lon = tile.lon
-        if i > 0:
-            min_lon = tile.lon + (i / NUM_STEPS)
 
-        max_lon = tile.lon + ((i + 1) / NUM_STEPS)
-        for j in range(NUM_STEPS):
-            min_lat = tile.lat
-            if j > 0:
-                min_lat = tile.lat + (j / NUM_STEPS)
+    min_lon = tile.lon
+    max_lon = tile.lon
+    min_lat = tile.lat
+    max_lat = tile.lat
+    buildings_and_trees_tags = ["way[\"natural\"]", "way[\"landuse\"]", "way[\"leisure\"]", "way[\"building\"]",
+                              "rel[\"natural\"]", "rel[\"landuse\"]", "rel[\"leisure\"]", "rel[\"building\"]"]
 
-            max_lat = tile.lat + ((j + 1) / NUM_STEPS)
+    OFFSET = 0.5
+    i, j = 0, 0
+
+    while max_lon < (tile.lon + 1):
+        max_lon += OFFSET
+        if max_lon > (tile.lon + 1):
+            max_lon = tile.lon + 1
+
+        while max_lat < (tile.lat + 1):
+            max_lat += OFFSET
+            if max_lat > (tile.lat + 1):
+                max_lat = tile.lat + 1
 
             print("Attempting to download OSM data from " + str(min_lat) + ", " + str(min_lon) + " to " + str(max_lat) + ", " + str(max_lon))
-            response = OSM.get_overpass_data("", (min_lon, min_lat, max_lon, max_lat), "MAP")
+            response = OSM.get_overpass_data(buildings_and_trees_tags, (min_lat, min_lon, max_lat, max_lon), None)
             file_name = os.path.join(scenproc_osm_dir, "scenproc_osm_data" + str(i) + "_" + str (j) + ".osm")
             with open(file_name, "wb") as f:
                 f.write(response)
 
+            min_lat = max_lat
+            j += 1
             print("Download successful")
+
+        min_lon = max_lon
+        min_lat = tile.lat
+        max_lat = tile.lat
+        j = 0
+        i += 1
+
 ##############################################################################
 
 ##############################################################################
