@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import warnings
+warnings.simplefilter(action="ignore", category=FutureWarning)
 import sys
 import os
 Ortho4XP_dir='..' if getattr(sys,'frozen',False) else '.'
