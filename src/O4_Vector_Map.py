@@ -148,7 +148,7 @@ def include_scenproc(tile):
                 max_lat = tile.lat + 1
 
             print("Attempting to download OSM data from " + str(min_lat) + ", " + str(min_lon) + " to " + str(max_lat) + ", " + str(max_lon))
-            response = OSM.get_overpass_data(buildings_and_trees_tags, (min_lat, min_lon, max_lat, max_lon), None)
+            response = OSM.get_overpass_data("", (min_lon, min_lat, max_lon, max_lat), "MAP")
             file_name = os.path.join(scenproc_osm_dir, "scenproc_osm_data" + str(i) + "_" + str (j) + ".osm")
             with open(file_name, "wb") as f:
                 f.write(response)
