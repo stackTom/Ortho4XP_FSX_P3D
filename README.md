@@ -3,6 +3,8 @@ A scenery generator for the X-Plane flight simulator
 
 Work in progress at adding FSX/P3D (ESP support)
 
+*Note: Checkout my updates to FSEarthTiles - https://github.com/stackTom/FSEarthTiles FSEarthTiles (FSET) has much better algorithms to avoid distortion of ortho imagery inside the sim. It supports FSX, P3D, and FS9, and allows for the creation of tiles which don't have to be 1 degree by 1 degree like Ortho4XP.
+
 # Use at your own risk
 
 # Prerequisites
