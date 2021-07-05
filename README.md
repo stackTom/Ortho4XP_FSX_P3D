@@ -1,3 +1,5 @@
+# Find the latest version here: https://github.com/stackTom/Ortho4XP_FSX_P3D/releases
+
 # Ortho4XP_FSX_P3D
 A scenery generator for the X-Plane flight simulator
 
