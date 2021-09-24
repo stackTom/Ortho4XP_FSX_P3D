@@ -40,7 +40,24 @@ def needs_mask(tile, til_x_left,til_y_top,zoomlevel,*args):
     else:
         return small_img
 ##############################################################################
+def add_mask_width_ESP(img_array):
+    # This function makes sure the blur created when adding mask width is a red blur.
+    # this allows ortho imagery to show with water effects in fsx/p3d
+    # NOTE: the below is based on the fact that in a 32 bit integer, the left most 8 bits
+    # denote the alpha and the right most 8 bits denote the red value
+    # so from left to right, it is stored as ABGR
+    # I use numpy vectorized functions... it makes it less readable in my opinion to the untrained eye
+    # but the speedups are too good to pass by
+    BINARY_MASK = 4278190335
+    UINT32_MAX = 4294967295
+    ALPHA_MASK = 255 << 24
 
+    new_image_array = img_array.astype("uint32")
+    new_image_array += (new_image_array << 8)
+    new_image_array += (new_image_array << 16)
+    new_image_array |= ALPHA_MASK
+
+    return numpy.where((new_image_array == ALPHA_MASK) | (new_image_array == UINT32_MAX), new_image_array, new_image_array & BINARY_MASK)
 ##############################################################################
 def build_masks(tile,for_imagery=False):
     if UI.is_working: return 0
@@ -399,11 +416,17 @@ def build_masks(tile,for_imagery=False):
         img_array=numpy.maximum(img_array,custom_mask_array)
 
         if not (img_array.max()==0 or img_array.min()==255):
-            masks_im=Image.fromarray(img_array)  #.filter(ImageFilter.GaussianBlur(3))
             mask_img_name = os.path.join(dest_dir, FNAMES.legacy_mask(til_x, til_y))
+            mode = None
             if O4_ESP_Globals.build_for_ESP:
                 name, extension = os.path.splitext(mask_img_name)
                 mask_img_name = name + ".tif"
+                mode = "RGBA"
+                img_array = add_mask_width_ESP(img_array)
+
+            masks_im=Image.fromarray(img_array, mode=mode)  #.filter(ImageFilter.GaussianBlur(3))
+            if mode == "RGBA":
+                mask_im = masks_im.convert("RGB")
             masks_im.save(mask_img_name)
             UI.vprint(2,"     Done.") 
         else:
