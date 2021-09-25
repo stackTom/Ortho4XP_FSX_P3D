@@ -42,7 +42,7 @@ def get_total_num_sources(seasons_to_create, build_night, build_water_mask):
         for season, should_build in seasons_to_create.items():
             if should_build:
                 total += 1
-                if season == "summer":
+                if season == "Summer":
                     created_summer = True
         # if at least one season has been built and it is not summer, we always need to create summer
         # to cover the remaining months
@@ -77,44 +77,38 @@ def source_num_to_source_num_string(source_num, total_sources):
 
     return str(source_num)
 
+def get_variation(season):
+    variation_map = {
+        "Spring": ("March,April,May", "_spring"),
+        "Fall": ("September,October", "_fall"),
+        "Winter": ("November", "_winter"),
+        "HardWinter": ("December,January,February", "_hard_winter")
+    }
+
+    return variation_map[season]
+
 # getting None from this function is a good way of seeing if there are no seasons to build...
 def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_dir, source_file, img_mask_folder_abs_path, img_mask_name, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim, total_sources, should_mask):
     string = ""
     source_file_name, ext = os.path.splitext(source_file)
     months_used_dict = { "January": False, "February": False, "March": False, "April": False, "May": False, "June": False, "July": False, "August": False, "September": False, "October": False, "November": False, "December": False }
 
-    if seasons_to_create["spring"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Spring", "March,April,May", type, layer, source_dir, source_file_name + "_spring" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["March"] = True
-        months_used_dict["April"] = True
-        months_used_dict["May"] = True
-    if seasons_to_create["fall"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Fall", "September,October", type, layer, source_dir, source_file_name + "_fall" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["September"] = True
-        months_used_dict["October"] = True
-    if seasons_to_create["winter"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Winter", "November", type, layer, source_dir, source_file_name + "_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["November"] = True
-    if seasons_to_create["hard_winter"]:
-        string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "HardWinter", "December,January,February", type, layer, source_dir, source_file_name + "_hard_winter" + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
-        if should_mask:
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
-        source_num += 1
-        months_used_dict["December"] = True
-        months_used_dict["January"] = True
-        months_used_dict["February"] = True
+    for season, create_season in seasons_to_create.items():
+        # summer is handled in a special manner
+        if season != "Summer" and create_season:
+            (variation, img_suffix) = get_variation(season)
+            string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, variation, type, layer, source_dir, source_file_name + img_suffix + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
+            if should_mask:
+                string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
+            source_num += 1
+            if variation is not None:
+                months_used = variation.split(",")
+                for month in months_used:
+                    months_used_dict[month] = True
+
     # create summer with variation which includes all those months that haven't been included yet. do this if either summer is specified in Ortho4XP.cfg OR
     # if at least one other season has been specified (ie string != "") in order that all months are specified if not all seasons are specified...
-    if seasons_to_create["summer"] or string != "":
+    if seasons_to_create["Summer"] or string != "":
         months_str = ""
         for month, has_been_used in months_used_dict.items():
             if not has_been_used:
@@ -147,11 +141,11 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
         # we don't tell resample to mask otherwise it will fail
         should_mask = (O4_ESP_Globals.do_build_masks and os.path.isfile(img_mask_abs_path))
         seasons_to_create = {
-            "summer": O4_Config_Utils.create_ESP_summer,
-            "spring": O4_Config_Utils.create_ESP_spring,
-            "fall": O4_Config_Utils.create_ESP_fall,
-            "winter": O4_Config_Utils.create_ESP_winter,
-            "hard_winter": O4_Config_Utils.create_ESP_hard_winter
+            "Summer": O4_Config_Utils.create_ESP_summer,
+            "Spring": O4_Config_Utils.create_ESP_spring,
+            "Fall": O4_Config_Utils.create_ESP_fall,
+            "Winter": O4_Config_Utils.create_ESP_winter,
+            "HardWinter": O4_Config_Utils.create_ESP_hard_winter
         }
         contents = ""
         total_num_sources = get_total_num_sources(seasons_to_create, O4_Config_Utils.create_ESP_night, should_mask)
