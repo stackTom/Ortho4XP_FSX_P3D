@@ -99,7 +99,8 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
             (variation, img_suffix) = get_variation(season)
             string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), season, variation, type, layer, source_dir, source_file_name + img_suffix + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
             if should_mask:
-                string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
+                string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n"
+                string += "; pull the land water mask from Source" + str(total_sources) + ", band 2\nChannel_LandWaterMask = " + str(total_sources) + ".2\n\n"
             source_num += 1
             if variation is not None:
                 months_used = variation.split(",")
@@ -117,7 +118,8 @@ def get_seasons_inf_string(seasons_to_create, source_num, type, layer, source_di
         months_str = months_str[:-1]
         string += create_INF_source_string(source_num_to_source_num_string(source_num, total_sources), "Summer", months_str, type, layer, source_dir, source_file_name + ext, lon, lat, num_cells_line, num_lines, cell_x_dim, cell_y_dim) + "\n\n"
         if should_mask:
-            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n\n"
+            string += "; pull the blend mask from Source" + str(total_sources) + ", band 0\nChannel_BlendMask = " + str(total_sources) + ".0\n"
+            string += "; pull the land water mask from Source" + str(total_sources) + ", band 2\nChannel_LandWaterMask = " + str(total_sources) + ".2\n\n"
         source_num += 1
 
     return (string if string != "" else None, source_num - 1)
@@ -165,7 +167,8 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             contents += create_INF_source_string(source_num_str, "LightMap", "LightMap", "BMP", "Imagery", os.path.abspath(file_dir), file_name_no_extension + "_night.bmp", str(img_top_left_tile[1]),
                     str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
-                contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
+                contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n"
+                contents += "; pull the land water mask from Source" + str(total_num_sources) + ", band 2\nChannel_LandWaterMask = " + str(total_num_sources) + ".2\n\n"
             current_source_num += 1
 
         # TODO: when no seasons being built, just use your new logic which sets the season to summer and sets variation to all months not used...
@@ -174,7 +177,8 @@ def make_ESP_inf_file(file_dir, file_name, til_x_left, til_x_right, til_y_top, t
             contents += create_INF_source_string(source_num_str, None, None, "BMP", "Imagery", os.path.abspath(file_dir), file_name, str(img_top_left_tile[1]),
                         str(img_top_left_tile[0]), str(IMG_X_Y_DIM), str(IMG_X_Y_DIM), str(img_cell_x_dimension_deg), str(img_cell_y_dimension_deg)) + "\n\n"
             if should_mask:
-                contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n\n"
+                contents += "; pull the blend mask from Source" + str(total_num_sources) + ", band 0\nChannel_BlendMask = " + str(total_num_sources) + ".0\n"
+                contents += "; pull the land water mask from Source" + str(total_num_sources) + ", band 2\nChannel_LandWaterMask = " + str(total_num_sources) + ".2\n\n"
 
             current_source_num += 1
 
