@@ -11,16 +11,20 @@ Work in progress at adding FSX/P3D (ESP support)
 
 # Prerequisites
 
-Please install ImageMagick before attempting to run, otherwise the night/season creation won't work. An installer has been provided inside the dist/ directory. Run the installer with the default settings.
+1) Windows Vista (or greater) 64 bit is required.
+
+2) Please also install Microsoft Visual c++ redistributable. Download it here: https://aka.ms/vs/16/release/vc_redist.x64.exe
+
+3) Please install ImageMagick before attempting to run, otherwise the night/season creation won't work. An installer has been provided inside the dist/ directory. Run the installer with the default settings.
 The same installer can also be found here: https://www.imagemagick.org/download/binaries/ImageMagick-7.0.8-10-Q8-x64-dll.exe
 
-NOTE: Need to provide the location of your resample.exe from the P3D or FSX SDK in Ortho4XP.cfg, like this:
+4) NOTE: Need to provide the location of your resample.exe from the P3D or FSX SDK in Ortho4XP.cfg, like this:
 
 `ESP_resample_loc=C:\\LOCATION\\TO\\resample.exe`
 
 Notice the double backslashes `\\` instead of single `\`.
 
-You can obtain the P3D resample.exe by installing the P3D SDK provided by Lockheed Martin on their site where you download P3D.
+5) You can obtain the P3D resample.exe by installing the P3D SDK provided by Lockheed Martin on their site where you download P3D.
 For FSX, resample.exe can be found by installing the FSX SDK found in the FSX Deluxe Disc 1 or in FSX Acceleration Pack (or FSX Gold which includes the Acceleration pack). The Steam edition of FSX does have an SDK but doesn't include the resample.exe executable, so you will have to install the regular SDK from any of these other sources (the FSX SDK has its own installer and can be installed separately without having to install the full game). 
 
 # Running from exe
