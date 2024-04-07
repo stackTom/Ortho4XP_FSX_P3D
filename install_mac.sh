@@ -1,9 +1,8 @@
 # Install dependencies
-brew install python gdal spatialindex p7zip
+brew install python gdal spatialindex p7zip proj python-tk
 
 # Install pyproj
-pip3 install cython
-pip3 install git+https://github.com/jswhit/pyproj.git
+pip3 install pyproj
 
 # Install other dependencies
 pip3 install numpy shapely rtree pillow requests
